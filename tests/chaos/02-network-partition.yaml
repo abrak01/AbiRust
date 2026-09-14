@@ -1,0 +1,54 @@
+# Copyright 2024 Stellar-K8s Contributors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# tests/chaos/02-network-partition.yaml
+#
+# Experiment 2: Partition the network between the operator and the K8s API server.
+#
+# What this tests:
+#   The operator loses all connectivity to the Kubernetes API for 60 seconds.
+#   During this time it cannot read or write any resources.
+#   After the partition heals, the operator must resume reconciliation and
+#   converge all StellarNodes back to their desired state.
+#
+# Expected outcome:
+#   - Operator logs show "connection refused" or timeout errors during partition.
+#   - No StellarNode resources are left in a permanently broken state.
+#   - Within 3 minutes of partition healing, all StellarNodes are Ready.
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: operator-api-partition
+  namespace: chaos-testing
+  labels:
+    app.kubernetes.io/part-of: stellar-chaos-suite
+    chaos/experiment: "02-network-partition"
+spec:
+  action: partition               # Full bidirectional network partition
+  mode: one
+  selector:
+    namespaces:
+      - stellar-system
+    labelSelectors:
+      app: stellar-operator
+  direction: both                 # Block both inbound and outbound traffic
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - default
+      labelSelectors:
+        component: kube-apiserver # Target the API server pods
+  duration: "60s"
+  scheduler:
+    cron: "@once"

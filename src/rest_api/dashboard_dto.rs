@@ -1,0 +1,257 @@
+// Copyright 2024 Stellar-K8s Contributors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//! Data Transfer Objects for the Dashboard API
+
+use serde::{Deserialize, Serialize};
+
+use crate::crd::{Condition, DRDrillResult};
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DRStatusResponse {
+    pub namespace: String,
+    pub name: String,
+    pub dr_enabled: bool,
+    pub current_role: Option<String>,
+    pub failover_active: bool,
+    pub last_failover_time: Option<String>,
+    pub sync_lag: Option<u64>,
+    pub compliance_status: Option<String>,
+    pub last_drill_result: Option<DRDrillResult>,
+}
+
+/// Dashboard overview response
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardOverview {
+    pub total_nodes: usize,
+    pub healthy_nodes: usize,
+    pub syncing_nodes: usize,
+    pub unhealthy_nodes: usize,
+    pub nodes_by_type: NodeTypeBreakdown,
+    pub nodes_by_network: NetworkBreakdown,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeTypeBreakdown {
+    pub validators: usize,
+    pub horizon: usize,
+    pub soroban: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkBreakdown {
+    pub mainnet: usize,
+    pub testnet: usize,
+    pub futurenet: usize,
+    pub custom: usize,
+}
+
+/// Node logs response
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeLogsResponse {
+    pub namespace: String,
+    pub name: String,
+    pub pod_name: String,
+    pub logs: String,
+    pub timestamp: String,
+}
+
+/// Node action request
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeActionRequest {
+    pub action: NodeAction,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NodeAction {
+    Restart,
+    Snapshot,
+    Suspend,
+    Resume,
+    /// Toggle maintenance mode on the node
+    MaintenanceMode,
+    /// Prune old history archives for the node
+    Prune,
+}
+
+/// Node action response
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeActionResponse {
+    pub success: bool,
+    pub message: String,
+    pub action: NodeAction,
+}
+
+/// Node conditions response (formatted for UI)
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeConditionsResponse {
+    pub namespace: String,
+    pub name: String,
+    pub conditions: Vec<ConditionDisplay>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConditionDisplay {
+    pub condition_type: String,
+    pub status: String,
+    pub reason: Option<String>,
+    pub message: Option<String>,
+    pub last_transition_time: Option<String>,
+    pub severity: ConditionSeverity,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConditionSeverity {
+    Success,
+    Warning,
+    Error,
+    Info,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogAnalyticsResponse {
+    pub top_patterns: Vec<LogPatternDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogPatternDto {
+    pub template: String,
+    pub count: u64,
+    pub last_seen: String,
+}
+
+impl From<&Condition> for ConditionDisplay {
+    fn from(c: &Condition) -> Self {
+        let severity = match c.type_.as_str() {
+            "Ready" if c.status == "True" => ConditionSeverity::Success,
+            "Ready" if c.status == "False" => ConditionSeverity::Error,
+            "Synced" if c.status == "True" => ConditionSeverity::Success,
+            "Synced" if c.status == "False" => ConditionSeverity::Warning,
+            "ArchiveIntegrityDegraded" if c.status == "True" => ConditionSeverity::Warning,
+            _ => ConditionSeverity::Info,
+        };
+
+        Self {
+            condition_type: c.type_.clone(),
+            status: c.status.clone(),
+            reason: Some(c.reason.clone()),
+            message: Some(c.message.clone()),
+            last_transition_time: Some(c.last_transition_time.clone()),
+            severity,
+        }
+    }
+}
+
+/// Operator logs response
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperatorLogsResponse {
+    pub logs: Vec<String>,
+    pub timestamp: String,
+}
+
+/// Metrics summary for dashboard
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsSummary {
+    pub namespace: String,
+    pub name: String,
+    pub ledger_sequence: Option<u64>,
+    pub ready_replicas: i32,
+    pub replicas: i32,
+    pub quorum_fragility: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigDriftResponse {
+    pub namespace: String,
+    pub name: String,
+    pub drifts: Vec<crate::config_mgmt::drift::DriftReport>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigImpactResponse {
+    pub impact: crate::config_mgmt::impact::ImpactAnalysis,
+    pub validation_errors: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityPostureResponse {
+    pub posture: crate::security::SecurityPosture,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapacityPlanningResponse {
+    pub recommendations: Vec<crate::capacity_planning::CapacityRecommendation>,
+    pub forecasts: Vec<crate::capacity_planning::GrowthForecast>,
+    pub bottlenecks: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhatIfRequest {
+    pub scenario_name: String,
+    pub scale_factor: f64,
+}
+
+/// Monitoring system health status
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitoringStatusResponse {
+    pub healthy: bool,
+    pub metrics_endpoint_reachable: bool,
+    pub operator_metrics_available: bool,
+    pub last_metrics_scrape: Option<String>,
+    pub last_metrics_scrape_error: Option<String>,
+    pub total_metrics_collected: u64,
+    pub metrics_by_type: MetricsTypeBreakdown,
+    pub dashboard_status: DashboardStatus,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsTypeBreakdown {
+    pub ledger_metrics: usize,
+    pub transaction_metrics: usize,
+    pub peer_metrics: usize,
+    pub archive_metrics: usize,
+    pub database_metrics: usize,
+    pub scp_metrics: usize,
+    pub soroban_metrics: usize,
+    pub horizon_metrics: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardStatus {
+    pub grafana_available: bool,
+    pub prometheus_available: bool,
+    pub alert_manager_available: bool,
+    pub dashboards_loaded: usize,
+}

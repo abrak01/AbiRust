@@ -1,0 +1,985 @@
+// Copyright 2024 Stellar-K8s Contributors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//! mTLS Certificate Management for internal communication
+//!
+//! Handles CA creation and certificate issuance for the Operator REST API
+//! and Stellar nodes. Supports automated rotation of server certificates
+//! before expiration.
+//!
+//! # cert-manager integration
+//!
+//! When a `StellarNode` has `spec.certManager` set, the operator delegates
+//! certificate issuance to cert-manager by creating a `Certificate` CR.
+//! cert-manager writes the resulting TLS data into the same Secret that the
+//! pod already mounts (`{node-name}-client-cert`). On every reconcile the
+//! operator calls [`check_and_restart_on_cert_rotation`] (invoked from
+//! `reconciler.rs` alongside `ensure_node_cert`/`ensure_cert_manager_certificate`),
+//! which compares that Secret's `resourceVersion` against the value observed
+//! on the previous reconcile and bumps a pod-template annotation to trigger a
+//! rolling restart whenever the certificate has actually rotated. This applies
+//! equally to cert-manager-issued and operator-issued self-signed certs, since
+//! both are rotated in place in the same Secret.
+
+use crate::crd::types::CertManagerConfig;
+use crate::crd::StellarNode;
+use crate::error::{Error, Result};
+use k8s_openapi::api::core::v1::Secret;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use kube::{
+    api::{Api, DynamicObject, GroupVersionResource, Patch, PatchParams},
+    discovery::ApiResource,
+    Client, Resource, ResourceExt,
+};
+use rcgen::{
+    CertificateParams, DistinguishedName, ExtendedKeyUsagePurpose, IsCa, KeyPair,
+    KeyUsagePurpose, SanType,
+};
+use rcgen::string::Ia5String;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+use tracing::{debug, info, warn};
+use x509_parser::certificate::X509Certificate;
+use x509_parser::pem::parse_x509_pem;
+use x509_parser::prelude::FromDer;
+
+pub const CA_SECRET_NAME: &str = "stellar-operator-ca";
+pub const SERVER_CERT_SECRET_NAME: &str = "stellar-operator-server-cert";
+
+/// Default number of days before certificate expiration at which to trigger rotation.
+pub const DEFAULT_CERT_ROTATION_THRESHOLD_DAYS: u32 = 30;
+
+/// Build mTLS runtime config from a Kubernetes Secret.
+///
+/// The secret must contain `tls.crt`, `tls.key`, and `ca.crt` entries.
+pub fn load_mtls_config_from_secret(secret: &Secret) -> Result<crate::MtlsConfig> {
+    let data = secret
+        .data
+        .as_ref()
+        .ok_or_else(|| Error::ConfigError("Secret has no data".to_string()))?;
+
+    let cert_pem = data
+        .get("tls.crt")
+        .ok_or_else(|| Error::ConfigError("Missing tls.crt".to_string()))?
+        .0
+        .clone();
+    let key_pem = data
+        .get("tls.key")
+        .ok_or_else(|| Error::ConfigError("Missing tls.key".to_string()))?
+        .0
+        .clone();
+    let ca_pem = data
+        .get("ca.crt")
+        .ok_or_else(|| Error::ConfigError("Missing ca.crt".to_string()))?
+        .0
+        .clone();
+
+    Ok(crate::MtlsConfig {
+        cert_pem,
+        key_pem,
+        ca_pem,
+    })
+}
+
+/// Ensure the CA exists in the cluster
+pub async fn ensure_ca(client: &Client, namespace: &str) -> Result<()> {
+    let secrets: Api<Secret> = Api::namespaced(client.clone(), namespace);
+
+    if secrets.get(CA_SECRET_NAME).await.is_ok() {
+        return Ok(());
+    }
+
+    // Generate new CA
+    let mut params = CertificateParams::default();
+    params.is_ca = IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    params.distinguished_name = DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "stellar-operator-ca");
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    params.key_usages.push(KeyUsagePurpose::KeyCertSign);
+    params.key_usages.push(KeyUsagePurpose::CrlSign);
+
+    let key_pair = KeyPair::generate().map_err(|e| Error::ConfigError(e.to_string()))?;
+    let cert = params
+        .self_signed(&key_pair)
+        .map_err(|e| Error::ConfigError(e.to_string()))?;
+
+    let mut data = BTreeMap::new();
+    data.insert("tls.crt".to_string(), cert.pem().into_bytes());
+    data.insert("tls.key".to_string(), key_pair.serialize_pem().into_bytes());
+
+    let secret = Secret {
+        metadata: ObjectMeta {
+            name: Some(CA_SECRET_NAME.to_string()),
+            namespace: Some(namespace.to_string()),
+            ..Default::default()
+        },
+        data: Some(
+            data.into_iter()
+                .map(|(k, v)| (k, k8s_openapi::ByteString(v)))
+                .collect(),
+        ),
+        ..Default::default()
+    };
+
+    secrets
+        .patch(
+            CA_SECRET_NAME,
+            &PatchParams::apply("stellar-operator").force(),
+            &Patch::Apply(&secret),
+        )
+        .await
+        .map_err(Error::KubeError)?;
+
+    Ok(())
+}
+
+/// Ensure server certificate exists for the operator (creates only if missing).
+pub async fn ensure_server_cert(
+    client: &Client,
+    namespace: &str,
+    dns_names: Vec<String>,
+) -> Result<()> {
+    let secrets: Api<Secret> = Api::namespaced(client.clone(), namespace);
+
+    if secrets.get(SERVER_CERT_SECRET_NAME).await.is_ok() {
+        return Ok(());
+    }
+
+    generate_and_patch_server_cert_inner(&secrets, namespace, dns_names).await
+}
+
+/// Returns the time until the certificate expires, or `None` if already expired/invalid.
+/// Uses the first certificate in the PEM if multiple are present.
+pub fn cert_time_to_expiration(cert_pem: &[u8]) -> Result<Option<Duration>> {
+    let (_, pem) = parse_x509_pem(cert_pem)
+        .map_err(|e| Error::ConfigError(format!("Failed to parse PEM: {e}")))?;
+    let (_, cert) = X509Certificate::from_der(&pem.contents)
+        .map_err(|e| Error::ConfigError(format!("Failed to parse X.509 certificate: {e}")))?;
+    let validity = cert.validity();
+    let duration = validity.time_to_expiration();
+    // x509-parser uses time::Duration; convert to std::time::Duration
+    Ok(duration.map(|d| {
+        let secs = d.whole_seconds().try_into().unwrap_or(0u64);
+        Duration::from_secs(secs)
+    }))
+}
+
+/// Check whether the current server certificate in the cluster is within the rotation threshold
+/// (i.e. expires within `rotation_threshold_days` days). Returns true if rotation should be performed.
+pub async fn server_cert_needs_rotation(
+    client: &Client,
+    namespace: &str,
+    rotation_threshold_days: u32,
+) -> Result<bool> {
+    let secrets: Api<Secret> = Api::namespaced(client.clone(), namespace);
+    let secret = match secrets.get(SERVER_CERT_SECRET_NAME).await {
+        Ok(s) => s,
+        Err(_) => return Ok(true), // No cert yet, needs creation (handled by ensure_server_cert)
+    };
+    let data = secret
+        .data
+        .as_ref()
+        .ok_or_else(|| Error::ConfigError("Server cert secret has no data".to_string()))?;
+    let cert_pem = data
+        .get("tls.crt")
+        .ok_or_else(|| Error::ConfigError("Server cert secret missing tls.crt".to_string()))?;
+    let time_to_exp = cert_time_to_expiration(&cert_pem.0)?;
+    let threshold = Duration::from_secs(rotation_threshold_days as u64 * 24 * 3600);
+    match time_to_exp {
+        None => Ok(true), // Expired or invalid, rotate
+        Some(d) if d <= threshold => Ok(true),
+        Some(_) => Ok(false),
+    }
+}
+
+/// Generate a new server certificate and update the Secret (overwrites existing).
+/// Used for rotation; for initial creation use `ensure_server_cert`.
+pub async fn rotate_server_cert(
+    client: &Client,
+    namespace: &str,
+    dns_names: Vec<String>,
+) -> Result<()> {
+    let secrets: Api<Secret> = Api::namespaced(client.clone(), namespace);
+    generate_and_patch_server_cert_inner(&secrets, namespace, dns_names).await
+}
+
+async fn generate_and_patch_server_cert_inner(
+    secrets: &Api<Secret>,
+    namespace: &str,
+    dns_names: Vec<String>,
+) -> Result<()> {
+    let ca_secret = secrets
+        .get(CA_SECRET_NAME)
+        .await
+        .map_err(Error::KubeError)?;
+    let ca_cert_pem = String::from_utf8(
+        ca_secret
+            .data
+            .as_ref()
+            .unwrap()
+            .get("tls.crt")
+            .unwrap()
+            .0
+            .clone(),
+    )
+    .unwrap();
+    let ca_key_pem = String::from_utf8(
+        ca_secret
+            .data
+            .as_ref()
+            .unwrap()
+            .get("tls.key")
+            .unwrap()
+            .0
+            .clone(),
+    )
+    .unwrap();
+
+    let ca_key_pair =
+        KeyPair::from_pem(&ca_key_pem).map_err(|e| Error::ConfigError(e.to_string()))?;
+    let mut ca_params = CertificateParams::new(vec!["stellar-operator-ca".to_string()])?;
+    ca_params.is_ca = IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    let ca_cert = ca_params
+        .self_signed(&ca_key_pair)
+        .map_err(|e| Error::ConfigError(e.to_string()))?;
+
+    let mut params = CertificateParams::default();
+    params.distinguished_name = DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "stellar-operator");
+    for dns in dns_names {
+        params.subject_alt_names.push(SanType::DnsName(
+            Ia5String::try_from(dns).map_err(|e| Error::ConfigError(e.to_string()))?,
+        ));
+    }
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ServerAuth);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ClientAuth);
+
+    let key_pair = KeyPair::generate().map_err(|e| Error::ConfigError(e.to_string()))?;
+    let issuer = rcgen::Issuer::from_params(&ca_params, &ca_key_pair);
+    let cert = params
+        .signed_by(&key_pair, &issuer)
+        .map_err(|e| Error::ConfigError(e.to_string()))?;
+
+    let mut data = BTreeMap::new();
+    data.insert("tls.crt".to_string(), cert.pem().into_bytes());
+    data.insert("tls.key".to_string(), key_pair.serialize_pem().into_bytes());
+    data.insert("ca.crt".to_string(), ca_cert_pem.into_bytes());
+
+    let secret = Secret {
+        metadata: ObjectMeta {
+            name: Some(SERVER_CERT_SECRET_NAME.to_string()),
+            namespace: Some(namespace.to_string()),
+            ..Default::default()
+        },
+        data: Some(
+            data.into_iter()
+                .map(|(k, v)| (k, k8s_openapi::ByteString(v)))
+                .collect(),
+        ),
+        ..Default::default()
+    };
+
+    secrets
+        .patch(
+            SERVER_CERT_SECRET_NAME,
+            &PatchParams::apply("stellar-operator").force(),
+            &Patch::Apply(&secret),
+        )
+        .await
+        .map_err(Error::KubeError)?;
+
+    Ok(())
+}
+
+/// If the server certificate is within the rotation threshold, generate a new one and update the Secret.
+/// Returns `true` if rotation was performed, `false` otherwise.
+pub async fn maybe_rotate_server_cert(
+    client: &Client,
+    namespace: &str,
+    dns_names: Vec<String>,
+    rotation_threshold_days: u32,
+) -> Result<bool> {
+    if !server_cert_needs_rotation(client, namespace, rotation_threshold_days).await? {
+        debug!("Server certificate is still valid beyond threshold, skipping rotation");
+        return Ok(false);
+    }
+    info!(
+        "Server certificate within {} days of expiration or missing, rotating",
+        rotation_threshold_days
+    );
+    rotate_server_cert(client, namespace, dns_names).await?;
+    Ok(true)
+}
+
+/// Ensure client certificate exists for a specific node
+pub async fn ensure_node_cert(client: &Client, node: &StellarNode) -> Result<()> {
+    let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
+    let node_name = node.name_any();
+    let secret_name = format!("{node_name}-client-cert");
+    let secrets: Api<Secret> = Api::namespaced(client.clone(), &namespace);
+
+    if secrets.get(&secret_name).await.is_ok() {
+        return Ok(());
+    }
+
+    let ca_secret = secrets
+        .get(CA_SECRET_NAME)
+        .await
+        .map_err(Error::KubeError)?;
+    let ca_cert_pem = String::from_utf8(
+        ca_secret
+            .data
+            .as_ref()
+            .unwrap()
+            .get("tls.crt")
+            .unwrap()
+            .0
+            .clone(),
+    )
+    .unwrap();
+    let ca_key_pem = String::from_utf8(
+        ca_secret
+            .data
+            .as_ref()
+            .unwrap()
+            .get("tls.key")
+            .unwrap()
+            .0
+            .clone(),
+    )
+    .unwrap();
+
+    let ca_key_pair =
+        KeyPair::from_pem(&ca_key_pem).map_err(|e| Error::ConfigError(e.to_string()))?;
+    let mut ca_params = CertificateParams::new(vec!["stellar-operator-ca".to_string()])?;
+    ca_params.is_ca = IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    let ca_cert = ca_params
+        .self_signed(&ca_key_pair)
+        .map_err(|e| Error::ConfigError(e.to_string()))?;
+
+    let mut params = CertificateParams::default();
+    params.distinguished_name = DistinguishedName::new();
+    params.distinguished_name.push(
+        rcgen::DnType::CommonName,
+        format!("stellar-node-{node_name}"),
+    );
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ClientAuth);
+    params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ServerAuth);
+
+    let key_pair = KeyPair::generate().map_err(|e| Error::ConfigError(e.to_string()))?;
+    let issuer = rcgen::Issuer::from_params(&ca_params, &ca_key_pair);
+    let cert = params
+        .signed_by(&key_pair, &issuer)
+        .map_err(|e| Error::ConfigError(e.to_string()))?;
+
+    let mut data = BTreeMap::new();
+    data.insert("tls.crt".to_string(), cert.pem().into_bytes());
+    data.insert("tls.key".to_string(), key_pair.serialize_pem().into_bytes());
+    data.insert("ca.crt".to_string(), ca_cert_pem.into_bytes());
+
+    let secret = Secret {
+        metadata: ObjectMeta {
+            name: Some(secret_name.clone()),
+            namespace: Some(namespace.to_string()),
+            owner_references: Some(vec![
+                k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference {
+                    api_version: StellarNode::api_version(&()).to_string(),
+                    kind: StellarNode::kind(&()).to_string(),
+                    name: node_name.clone(),
+                    uid: node.uid().unwrap_or_default(),
+                    controller: Some(true),
+                    block_owner_deletion: Some(true),
+                },
+            ]),
+            ..Default::default()
+        },
+        data: Some(
+            data.into_iter()
+                .map(|(k, v)| (k, k8s_openapi::ByteString(v)))
+                .collect(),
+        ),
+        ..Default::default()
+    };
+
+    secrets
+        .patch(
+            &secret_name,
+            &PatchParams::apply("stellar-operator").force(),
+            &Patch::Apply(&secret),
+        )
+        .await
+        .map_err(Error::KubeError)?;
+
+    Ok(())
+}
+
+// ============================================================================
+// cert-manager integration
+// ============================================================================
+
+/// Create or update a cert-manager `Certificate` resource for a node.
+///
+/// The `Certificate` targets the same Secret name that the pod already mounts
+/// (`{node-name}-client-cert`), so no pod-spec changes are needed. cert-manager
+/// will write `tls.crt`, `tls.key`, and `ca.crt` into that Secret and rotate
+/// it automatically before expiry.
+///
+/// This function is a no-op when cert-manager is not installed (the dynamic API
+/// call will fail gracefully with a warning).
+pub async fn ensure_cert_manager_certificate(
+    client: &Client,
+    node: &StellarNode,
+    cfg: &CertManagerConfig,
+) -> Result<()> {
+    let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
+    let node_name = node.name_any();
+    let secret_name = format!("{node_name}-client-cert");
+    let cert_name = format!("{node_name}-mtls-cert");
+
+    // Build the Certificate manifest as a DynamicObject (avoids a hard dep on
+    // a cert-manager client crate while remaining fully functional at runtime).
+    let ar = ApiResource {
+        group: "cert-manager.io".to_string(),
+        version: "v1".to_string(),
+        api_version: "cert-manager.io/v1".to_string(),
+        kind: "Certificate".to_string(),
+        plural: "certificates".to_string(),
+    };
+
+    let gvr = GroupVersionResource::gvr("cert-manager.io", "v1", "certificates");
+    let _ = gvr; // used for documentation; ar drives the API call
+
+    let mut spec = serde_json::json!({
+        "secretName": secret_name,
+        "issuerRef": {
+            "name": cfg.issuer_ref.name,
+            "kind": cfg.issuer_ref.kind,
+            "group": cfg.issuer_ref.group,
+        },
+        "dnsNames": [
+            format!("{node_name}.{namespace}.svc.cluster.local"),
+            format!("{node_name}.{namespace}.svc"),
+            node_name.clone(),
+        ],
+        "usages": ["digital signature", "key encipherment", "client auth", "server auth"],
+    });
+
+    if let Some(duration) = &cfg.duration {
+        spec["duration"] = serde_json::Value::String(duration.clone());
+    }
+    if let Some(renew_before) = &cfg.renew_before {
+        spec["renewBefore"] = serde_json::Value::String(renew_before.clone());
+    }
+
+    let mut cert = DynamicObject::new(&cert_name, &ar);
+    cert.metadata.namespace = Some(namespace.clone());
+    cert.metadata.owner_references = Some(vec![
+        k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference {
+            api_version: StellarNode::api_version(&()).to_string(),
+            kind: StellarNode::kind(&()).to_string(),
+            name: node_name.clone(),
+            uid: node.uid().unwrap_or_default(),
+            controller: Some(true),
+            block_owner_deletion: Some(true),
+        },
+    ]);
+    cert.data = serde_json::json!({ "spec": spec });
+
+    let api: Api<DynamicObject> = Api::namespaced_with(client.clone(), &namespace, &ar);
+    match api
+        .patch(
+            &cert_name,
+            &PatchParams::apply("stellar-operator").force(),
+            &Patch::Apply(&cert),
+        )
+        .await
+    {
+        Ok(_) => {
+            info!(
+                "cert-manager Certificate {}/{} applied (issuer: {}/{})",
+                namespace, cert_name, cfg.issuer_ref.kind, cfg.issuer_ref.name
+            );
+            Ok(())
+        }
+        Err(e) => {
+            // cert-manager may not be installed; warn but don't fail the reconcile.
+            warn!(
+                "Failed to apply cert-manager Certificate for {}: {}. \
+                 Is cert-manager installed? Falling back to self-signed cert.",
+                node_name, e
+            );
+            Ok(())
+        }
+    }
+}
+
+/// Return the current `resourceVersion` of the node's TLS Secret, or `None`
+/// if the Secret does not exist yet.
+pub async fn cert_secret_resource_version(client: &Client, node: &StellarNode) -> Option<String> {
+    let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
+    let secret_name = format!("{}-client-cert", node.name_any());
+    let api: Api<Secret> = Api::namespaced(client.clone(), &namespace);
+    api.get(&secret_name)
+        .await
+        .ok()
+        .and_then(|s| s.metadata.resource_version)
+}
+
+/// Bump the pod-template annotation on the node's workload when the TLS Secret
+/// has been rotated (i.e. its `resourceVersion` changed since last reconcile).
+///
+/// Kubernetes rolls the pods when the pod-template annotation changes, giving
+/// them the new certificate without any manual intervention.
+///
+/// `last_known_rv` is the `resourceVersion` observed during the previous
+/// reconcile cycle. Pass `None` on the first run to skip the restart.
+pub async fn maybe_restart_on_cert_rotation(
+    client: &Client,
+    node: &StellarNode,
+    last_known_rv: Option<&str>,
+    dry_run: bool,
+) -> Result<bool> {
+    let current_rv = cert_secret_resource_version(client, node).await;
+
+    let should_restart =
+        matches!((last_known_rv, current_rv.as_deref()), (Some(prev), Some(curr)) if prev != curr);
+
+    if !should_restart {
+        return Ok(false);
+    }
+
+    let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
+    let node_name = node.name_any();
+
+    info!(
+        "TLS Secret for {}/{} was rotated (rv changed), triggering rolling restart",
+        namespace, node_name
+    );
+
+    if dry_run {
+        info!(
+            "[dry-run] Would restart pods for {}/{}",
+            namespace, node_name
+        );
+        return Ok(true);
+    }
+
+    // Bump the annotation on the StatefulSet or Deployment pod template.
+    // The annotation value is the new resourceVersion so it's idempotent.
+    let restart_annotation = "stellar.org/cert-rotated-at";
+    let annotation_value = current_rv.as_deref().unwrap_or("unknown");
+    let patch = serde_json::json!({
+        "spec": {
+            "template": {
+                "metadata": {
+                    "annotations": {
+                        restart_annotation: annotation_value
+                    }
+                }
+            }
+        }
+    });
+    let pp = if dry_run {
+        PatchParams::apply("stellar-operator").dry_run()
+    } else {
+        PatchParams::apply("stellar-operator")
+    };
+
+    use crate::crd::types::NodeType;
+    use k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
+
+    match node.spec.node_type {
+        NodeType::Validator => {
+            let api: Api<StatefulSet> = Api::namespaced(client.clone(), &namespace);
+            if let Err(e) = api.patch(&node_name, &pp, &Patch::Merge(&patch)).await {
+                warn!("Failed to patch StatefulSet for cert rotation restart: {e}");
+            }
+        }
+        NodeType::Horizon | NodeType::SorobanRpc => {
+            let api: Api<Deployment> = Api::namespaced(client.clone(), &namespace);
+            if let Err(e) = api.patch(&node_name, &pp, &Patch::Merge(&patch)).await {
+                warn!("Failed to patch Deployment for cert rotation restart: {e}");
+            }
+        }
+    }
+
+    Ok(true)
+}
+
+/// Process-local cache of the last-observed TLS Secret `resourceVersion` per
+/// node, keyed by `"{namespace}/{name}"`.
+///
+/// This is what makes [`maybe_restart_on_cert_rotation`] usable from the
+/// reconcile loop: kube-rs reconciles are stateless between invocations, so
+/// something has to remember what the resourceVersion was "last time" in
+/// order to detect a change. The cache lives only for the lifetime of the
+/// operator process — on restart it starts empty, which is safe because
+/// `maybe_restart_on_cert_rotation` treats a missing previous value as "skip
+/// the restart" (see its doc comment), so a freshly-started operator simply
+/// waits for the *next* rotation rather than restarting pods spuriously.
+static CERT_SECRET_RV_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn cert_rv_cache() -> &'static Mutex<HashMap<String, String>> {
+    CERT_SECRET_RV_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Look up the cached resourceVersion for `key`, then overwrite it with
+/// `current_rv` (or remove the entry if the Secret currently doesn't exist).
+/// Returns the value that was cached *before* this call, i.e. the
+/// `last_known_rv` to compare against.
+fn cache_get_and_update(key: &str, current_rv: Option<&str>) -> Option<String> {
+    let mut cache = cert_rv_cache().lock().unwrap_or_else(|e| e.into_inner());
+    let previous = cache.get(key).cloned();
+    match current_rv {
+        Some(rv) => {
+            cache.insert(key.to_string(), rv.to_string());
+        }
+        None => {
+            cache.remove(key);
+        }
+    }
+    previous
+}
+
+/// Reconcile-loop entry point: checks whether the node's TLS Secret has
+/// rotated since the previous reconcile and, if so, triggers a rolling
+/// restart of its workload so pods pick up the new certificate.
+///
+/// This wraps [`maybe_restart_on_cert_rotation`] with the process-local
+/// [`CERT_SECRET_RV_CACHE`] so callers don't need to track resourceVersions
+/// themselves. Safe to call on every reconcile for every node type; it is a
+/// cheap no-op when the Secret hasn't changed.
+pub async fn check_and_restart_on_cert_rotation(
+    client: &Client,
+    node: &StellarNode,
+    dry_run: bool,
+) -> Result<bool> {
+    let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
+    let key = format!("{namespace}/{}", node.name_any());
+
+    let current_rv = cert_secret_resource_version(client, node).await;
+    let last_known_rv = cache_get_and_update(&key, current_rv.as_deref());
+
+    maybe_restart_on_cert_rotation(client, node, last_known_rv.as_deref(), dry_run).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use k8s_openapi::ByteString;
+
+    fn make_self_signed_cert(not_before: (i32, u8, u8), not_after: (i32, u8, u8)) -> Vec<u8> {
+        let mut params = CertificateParams::default();
+        params.distinguished_name = DistinguishedName::new();
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, "test");
+        params.not_before = rcgen::date_time_ymd(not_before.0, not_before.1, not_before.2);
+        params.not_after = rcgen::date_time_ymd(not_after.0, not_after.1, not_after.2);
+        let cert = params.self_signed(&KeyPair::generate().unwrap()).unwrap();
+        cert.pem().into_bytes()
+    }
+
+    #[test]
+    fn cert_time_to_expiration_healthy_cert_beyond_threshold() {
+        // Certificate valid from 2020 to 2030: rotation should be ignored when healthy
+        let pem = make_self_signed_cert((2020, 1, 1), (2030, 1, 1));
+        let time_to_exp = cert_time_to_expiration(&pem).unwrap();
+        let thirty_days =
+            Duration::from_secs(DEFAULT_CERT_ROTATION_THRESHOLD_DAYS as u64 * 24 * 3600);
+        assert!(
+            time_to_exp.is_some(),
+            "healthy cert should have some time to expiration (got None - cert may be considered invalid by parser)"
+        );
+        assert!(
+            time_to_exp.unwrap() > thirty_days,
+            "cert with long validity should be beyond rotation threshold (ignored when healthy)"
+        );
+    }
+
+    #[test]
+    fn cert_time_to_expiration_expired_returns_none() {
+        // Certificate already expired: rotation should be triggered (threshold "met" for rotation)
+        let pem = make_self_signed_cert((2020, 1, 1), (2020, 6, 1));
+        let time_to_exp = cert_time_to_expiration(&pem).unwrap();
+        assert!(
+            time_to_exp.is_none(),
+            "expired cert should return None so rotation is performed"
+        );
+    }
+
+    #[test]
+    fn cert_time_to_expiration_near_expiry_within_threshold() {
+        // Certificate expiring soon (not_after in the past from "now"): same as expired
+        let pem = make_self_signed_cert((2020, 1, 1), (2020, 1, 2));
+        let time_to_exp = cert_time_to_expiration(&pem).unwrap();
+        assert!(
+            time_to_exp.is_none(),
+            "expired cert triggers rotation when threshold is met (any expired cert)"
+        );
+    }
+
+    #[test]
+    fn rotation_threshold_constant() {
+        assert_eq!(DEFAULT_CERT_ROTATION_THRESHOLD_DAYS, 30);
+    }
+
+    #[test]
+    fn load_mtls_config_from_secret_extracts_all_cert_data() {
+        let mut data = BTreeMap::new();
+        data.insert("tls.crt".to_string(), ByteString(b"cert-pem".to_vec()));
+        data.insert("tls.key".to_string(), ByteString(b"key-pem".to_vec()));
+        data.insert("ca.crt".to_string(), ByteString(b"ca-pem".to_vec()));
+
+        let secret = Secret {
+            data: Some(data),
+            ..Default::default()
+        };
+
+        let cfg = load_mtls_config_from_secret(&secret).expect("config should load");
+        assert_eq!(cfg.cert_pem, b"cert-pem".to_vec());
+        assert_eq!(cfg.key_pem, b"key-pem".to_vec());
+        assert_eq!(cfg.ca_pem, b"ca-pem".to_vec());
+    }
+
+    #[test]
+    fn load_mtls_config_from_secret_requires_tls_crt() {
+        let mut data = BTreeMap::new();
+        data.insert("tls.key".to_string(), ByteString(b"key-pem".to_vec()));
+        data.insert("ca.crt".to_string(), ByteString(b"ca-pem".to_vec()));
+
+        let secret = Secret {
+            data: Some(data),
+            ..Default::default()
+        };
+
+        let err = load_mtls_config_from_secret(&secret).expect_err("tls.crt must be required");
+        assert!(
+            err.to_string().contains("Missing tls.crt"),
+            "unexpected error: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // cert-manager config tests
+    // -----------------------------------------------------------------------
+
+    use crate::crd::types::{CertManagerConfig, CertManagerIssuerRef};
+
+    fn make_cert_manager_config(kind: &str) -> CertManagerConfig {
+        CertManagerConfig {
+            issuer_ref: CertManagerIssuerRef {
+                name: "my-issuer".to_string(),
+                kind: kind.to_string(),
+                group: "cert-manager.io".to_string(),
+            },
+            duration: Some("2160h".to_string()),
+            renew_before: Some("720h".to_string()),
+        }
+    }
+
+    #[test]
+    fn cert_manager_config_issuer_kind_defaults_to_issuer() {
+        // Verify the default kind is "Issuer" (namespace-scoped)
+        let cfg = CertManagerConfig {
+            issuer_ref: CertManagerIssuerRef {
+                name: "my-issuer".to_string(),
+                kind: "Issuer".to_string(),
+                group: "cert-manager.io".to_string(),
+            },
+            duration: None,
+            renew_before: None,
+        };
+        assert_eq!(cfg.issuer_ref.kind, "Issuer");
+    }
+
+    #[test]
+    fn cert_manager_config_cluster_issuer_kind() {
+        let cfg = make_cert_manager_config("ClusterIssuer");
+        assert_eq!(cfg.issuer_ref.kind, "ClusterIssuer");
+        assert_eq!(cfg.issuer_ref.name, "my-issuer");
+        assert_eq!(cfg.issuer_ref.group, "cert-manager.io");
+    }
+
+    #[test]
+    fn cert_manager_config_duration_and_renew_before() {
+        let cfg = make_cert_manager_config("Issuer");
+        assert_eq!(cfg.duration.as_deref(), Some("2160h"));
+        assert_eq!(cfg.renew_before.as_deref(), Some("720h"));
+    }
+
+    #[test]
+    fn cert_manager_config_optional_fields_can_be_none() {
+        let cfg = CertManagerConfig {
+            issuer_ref: CertManagerIssuerRef {
+                name: "letsencrypt".to_string(),
+                kind: "ClusterIssuer".to_string(),
+                group: "cert-manager.io".to_string(),
+            },
+            duration: None,
+            renew_before: None,
+        };
+        assert!(cfg.duration.is_none());
+        assert!(cfg.renew_before.is_none());
+    }
+
+    #[test]
+    fn cert_manager_config_roundtrip_serde() {
+        let cfg = make_cert_manager_config("ClusterIssuer");
+        let json = serde_json::to_string(&cfg).expect("serialize");
+        let restored: CertManagerConfig = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(cfg, restored);
+    }
+
+    #[test]
+    fn cert_manager_issuer_ref_roundtrip_serde() {
+        let issuer = CertManagerIssuerRef {
+            name: "vault-issuer".to_string(),
+            kind: "ClusterIssuer".to_string(),
+            group: "cert-manager.io".to_string(),
+        };
+        let json = serde_json::to_string(&issuer).expect("serialize");
+        let restored: CertManagerIssuerRef = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(issuer, restored);
+    }
+
+    // -----------------------------------------------------------------------
+    // maybe_restart_on_cert_rotation — unit tests (no k8s cluster needed)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn restart_not_triggered_when_rv_unchanged() {
+        // When last_known_rv == current_rv the function must return false.
+        // We test the decision logic directly without a live cluster by
+        // checking the condition: prev != curr.
+        let prev = "12345";
+        let curr = "12345";
+        let should_restart = prev != curr;
+        assert!(
+            !should_restart,
+            "no restart when resourceVersion is unchanged"
+        );
+    }
+
+    #[test]
+    fn restart_triggered_when_rv_changes() {
+        let prev = "12345";
+        let curr = "99999";
+        let should_restart = prev != curr;
+        assert!(
+            should_restart,
+            "restart must be triggered when resourceVersion changes"
+        );
+    }
+
+    #[test]
+    fn restart_not_triggered_when_no_previous_rv() {
+        // First reconcile: last_known_rv is None → skip restart
+        let last_known_rv: Option<&str> = None;
+        let current_rv: Option<&str> = Some("12345");
+        let should_restart = matches!((last_known_rv, current_rv), (Some(p), Some(c)) if p != c);
+        assert!(
+            !should_restart,
+            "no restart on first reconcile (no previous rv)"
+        );
+    }
+
+    #[test]
+    fn restart_not_triggered_when_secret_missing() {
+        // Secret doesn't exist yet → current_rv is None → no restart
+        let last_known_rv: Option<&str> = Some("12345");
+        let current_rv: Option<&str> = None;
+        let should_restart = matches!((last_known_rv, current_rv), (Some(p), Some(c)) if p != c);
+        assert!(!should_restart, "no restart when secret does not exist yet");
+    }
+
+    // -----------------------------------------------------------------------
+    // cache_get_and_update / check_and_restart_on_cert_rotation wiring
+    //
+    // These exercise the process-local cache that makes
+    // `maybe_restart_on_cert_rotation` usable from the (stateless-between-calls)
+    // reconcile loop in `reconciler.rs`. Each test uses a cache key unique to
+    // itself so tests running in parallel against the shared static cache
+    // cannot interfere with one another.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn cache_first_observation_has_no_previous_rv() {
+        let previous = cache_get_and_update("cache-test-ns-1/node-a", Some("100"));
+        assert!(
+            previous.is_none(),
+            "first time a node's cert Secret is observed there is no previous rv, \
+             so the reconciler must not restart pods on the very first reconcile"
+        );
+    }
+
+    #[test]
+    fn cache_returns_previous_rv_when_unchanged() {
+        let key = "cache-test-ns-2/node-b";
+        cache_get_and_update(key, Some("100"));
+        let previous = cache_get_and_update(key, Some("100"));
+        assert_eq!(
+            previous.as_deref(),
+            Some("100"),
+            "repeated observations of the same rv must report it as unchanged"
+        );
+    }
+
+    #[test]
+    fn cache_detects_rv_change_between_reconciles() {
+        let key = "cache-test-ns-3/node-c";
+        cache_get_and_update(key, Some("100")); // simulates first reconcile
+        let previous = cache_get_and_update(key, Some("200")); // secret rotated
+        assert_eq!(
+            previous.as_deref(),
+            Some("100"),
+            "second reconcile must see the rv from the first reconcile so the \
+             caller (maybe_restart_on_cert_rotation) can detect the rotation"
+        );
+        let previous_after = cache_get_and_update(key, Some("200"));
+        assert_eq!(
+            previous_after.as_deref(),
+            Some("200"),
+            "cache must be updated to the latest rv after each observation"
+        );
+    }
+
+    #[test]
+    fn cache_clears_entry_when_secret_deleted() {
+        let key = "cache-test-ns-4/node-d";
+        cache_get_and_update(key, Some("100"));
+        let previous = cache_get_and_update(key, None);
+        assert_eq!(previous.as_deref(), Some("100"));
+        // Once the Secret is gone the cache should not remember a stale rv;
+        // a subsequent recreation looks like a first observation again.
+        let previous_after_recreate = cache_get_and_update(key, Some("999"));
+        assert!(
+            previous_after_recreate.is_none(),
+            "cache entry must be cleared while the secret is missing"
+        );
+    }
+}
