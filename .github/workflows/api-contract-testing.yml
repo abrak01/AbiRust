@@ -2,7 +2,7 @@ name: API Contract Testing
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - 'docs/api/openapi.yaml'
       - 'src/rest_api/**'
@@ -10,7 +10,7 @@ on:
       - 'scripts/check-api-contract.py'
       - 'scripts/generate-openapi-spec.py'
   pull_request:
-    branches: [main]
+    branches: [main, master]
     paths:
       - 'docs/api/openapi.yaml'
       - 'src/rest_api/**'
