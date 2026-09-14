@@ -19,7 +19,7 @@
 //! Related: #1154 - Add pipeline stage that validates every documented CLI example command
 
 use clap::Parser;
-use stellar_k8s::cli::{Args, Commands, RunArgs, SimulatorUpArgs, WebhookArgs};
+use abi_rust::cli::{Args, Commands, RunArgs, SimulatorUpArgs, WebhookArgs};
 
 /// Parse a command as if invoking from the CLI
 fn parse_command(args: &[&str]) -> Result<Args, clap::Error> {
@@ -146,7 +146,7 @@ fn incident_report_example_parses() {
     ];
     let parsed = parse_command(&example).unwrap();
     if let Commands::Incident { command } = parsed.command {
-        if let stellar_k8s::incident::IncidentCommands::Report(_) = command {
+        if let abi_rust::incident::IncidentCommands::Report(_) = command {
             println!("✓ Incident report example parses correctly");
         } else {
             panic!("Expected Report subcommand");
@@ -162,7 +162,7 @@ fn simulator_up_examples_parse() {
     let example1 = vec!["stellar-operator", "simulator", "up"];
     let parsed = parse_command(&example1).unwrap();
     if let Commands::Simulator(sim) = parsed.command {
-        if let stellar_k8s::cli::SimulatorCmd::Up(args) = sim.command {
+        if let abi_rust::cli::SimulatorCmd::Up(args) = sim.command {
             assert_eq!(args.cluster_name, "stellar-sim");
             assert_eq!(args.namespace, "stellar-system");
             assert!(!args.use_k3s);
@@ -180,7 +180,7 @@ fn simulator_up_examples_parse() {
     ];
     let parsed = parse_command(&example2).unwrap();
     if let Commands::Simulator(sim) = parsed.command {
-        if let stellar_k8s::cli::SimulatorCmd::Up(args) = sim.command {
+        if let abi_rust::cli::SimulatorCmd::Up(args) = sim.command {
             assert_eq!(args.cluster_name, "my-cluster");
             println!("✓ Simulator up (custom cluster) parses correctly");
         }
@@ -190,7 +190,7 @@ fn simulator_up_examples_parse() {
     let example3 = vec!["stellar-operator", "simulator", "up", "--use-k3s"];
     let parsed = parse_command(&example3).unwrap();
     if let Commands::Simulator(sim) = parsed.command {
-        if let stellar_k8s::cli::SimulatorCmd::Up(args) = sim.command {
+        if let abi_rust::cli::SimulatorCmd::Up(args) = sim.command {
             assert!(args.use_k3s);
             println!("✓ Simulator up (k3s) parses correctly");
         }
@@ -372,7 +372,7 @@ fn backup_restore_list_cleanup_parse() {
     ];
     let parsed = parse_command(&backup_example).unwrap();
     if let Commands::Backup { command } = parsed.command {
-        if let stellar_k8s::cli::BackupCommands::Create(args) = command {
+        if let abi_rust::cli::BackupCommands::Create(args) = command {
             assert_eq!(args.source, std::path::PathBuf::from("/data"));
             assert_eq!(args.backend, "file");
             assert_eq!(args.destination, "/backups");
@@ -394,7 +394,7 @@ fn backup_restore_list_cleanup_parse() {
     ];
     let parsed = parse_command(&restore_example).unwrap();
     if let Commands::Backup { command } = parsed.command {
-        if let stellar_k8s::cli::BackupCommands::Restore(args) = command {
+        if let abi_rust::cli::BackupCommands::Restore(args) = command {
             assert_eq!(args.backup, "backup-20240101.tar.gz");
             assert_eq!(args.destination, std::path::PathBuf::from("/restore"));
             println!("✓ Backup restore example parses correctly");
@@ -413,7 +413,7 @@ fn backup_restore_list_cleanup_parse() {
     ];
     let parsed = parse_command(&list_example).unwrap();
     if let Commands::Backup { command } = parsed.command {
-        if let stellar_k8s::cli::BackupCommands::List(args) = command {
+        if let abi_rust::cli::BackupCommands::List(args) = command {
             assert_eq!(args.location, "/backups");
             println!("✓ Backup list example parses correctly");
         }
@@ -433,7 +433,7 @@ fn backup_restore_list_cleanup_parse() {
     ];
     let parsed = parse_command(&cleanup_example).unwrap();
     if let Commands::Backup { command } = parsed.command {
-        if let stellar_k8s::cli::BackupCommands::Cleanup(args) = command {
+        if let abi_rust::cli::BackupCommands::Cleanup(args) = command {
             assert_eq!(args.location, "/backups");
             assert_eq!(args.keep, 5);
             println!("✓ Backup cleanup example parses correctly");
@@ -559,7 +559,7 @@ fn test_cli_commands_documentation_coverage() {
     use std::fs;
 
     // Get all subcommands from the clap Args struct
-    let cmd = stellar_k8s::cli::Args::command();
+    let cmd = abi_rust::cli::Args::command();
     let subcommands: Vec<String> = cmd
         .get_subcommands()
         .map(|s| s.get_name().to_string())

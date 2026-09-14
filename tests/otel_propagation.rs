@@ -27,7 +27,7 @@ use axum::{
 use opentelemetry::trace::TraceContextExt;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
-use stellar_k8s::telemetry::{
+use abi_rust::telemetry::{
     http_trace_middleware, init_capturing_tracer, inject_trace_headers, trace_id_layer,
     CapturedSpan,
 };
@@ -234,9 +234,9 @@ fn w3c_headers_round_trip() {
         SpanContext, SpanId, TraceContextExt, TraceFlags, TraceId, TraceState,
     };
     use opentelemetry_sdk::propagation::TraceContextPropagator;
-    use stellar_k8s::telemetry::{extract_parent_context, HeaderInjector};
+    use abi_rust::telemetry::{extract_parent_context, HeaderInjector};
 
-    stellar_k8s::telemetry::install_w3c_propagator();
+    abi_rust::telemetry::install_w3c_propagator();
     let trace_id = TraceId::from_hex("4bf92f3577b34da6a3ce929d0e0e4736").expect("trace id");
     let span_id = SpanId::from_hex("00f067aa0ba902b7").expect("span id");
     let sc = SpanContext::new(

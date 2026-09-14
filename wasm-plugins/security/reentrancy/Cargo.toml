@@ -2,9 +2,9 @@
 name = "stellar-soroban-reentrancy-guard"
 version = "0.1.0"
 edition = "2021"
-description = "Native Reentrancy Guard middleware for Soroban cross-contract calls, enforced through the Stellar-K8s custom validation (Wasm) layer"
+description = "Native Reentrancy Guard middleware for Soroban cross-contract calls, enforced through the abi-rust custom validation (Wasm) layer"
 license = "Apache-2.0"
-repository = "https://github.com/OtowoOrg/Stellar-K8s"
+repository = "https://github.com/OtowoOrg/abi-rust"
 publish = false
 
 # This crate is an independent Wasm middleware (sub-contract) and is therefore

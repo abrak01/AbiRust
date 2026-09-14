@@ -13,7 +13,7 @@
 use chrono::Utc;
 use k8s_openapi::api::core::v1::{Container, Pod, PodSpec};
 use kube::api::ObjectMeta;
-use stellar_k8s::controller::health_check_sidecar::SyncStatus;
+use abi_rust::controller::health_check_sidecar::SyncStatus;
 
 #[test]
 fn test_health_check_sidecar_injected() {

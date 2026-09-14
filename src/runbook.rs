@@ -27,8 +27,8 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use stellar_k8s::runbook::generate_runbook;
-//! use stellar_k8s::crd::StellarNode;
+//! use abi_rust::runbook::generate_runbook;
+//! use abi_rust::crd::StellarNode;
 //! use kube::ResourceExt;
 //!
 //! let node: StellarNode = /* ... */;

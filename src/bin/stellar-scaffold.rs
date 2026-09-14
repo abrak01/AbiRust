@@ -13,7 +13,7 @@
 //! stellar-scaffold: CLI for scaffolding Stellar-K8s operators
 
 use clap::Parser;
-use stellar_k8s::sdk::codegen::{generate_controller_stub, render_controller_source};
+use abi_rust::sdk::codegen::{generate_controller_stub, render_controller_source};
 
 #[derive(Parser)]
 #[command(name = "stellar-scaffold")]

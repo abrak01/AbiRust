@@ -81,32 +81,32 @@ pub fn volume_mount(volume_name: &str, mount_path: &str) -> VolumeMount {
 ///
 /// Use this instead of `BackupVerificationConfig::default()` directly so tests
 /// are isolated from any future changes to the `Default` impl.
-pub fn backup_verification_defaults() -> stellar_k8s::backup::BackupVerificationConfig {
-    stellar_k8s::backup::BackupVerificationConfig {
+pub fn backup_verification_defaults() -> abi_rust::backup::BackupVerificationConfig {
+    abi_rust::backup::BackupVerificationConfig {
         enabled: false,
         schedule: "0 2 * * 0".to_string(),
         timeout_minutes: 60,
         benchmark_enabled: false,
-        strategy: stellar_k8s::backup::VerificationStrategy::Standard,
+        strategy: abi_rust::backup::VerificationStrategy::Standard,
         ..Default::default()
     }
 }
 
 /// Returns a `BackupVerificationConfig` configured for a quick CI run.
-pub fn backup_verification_quick() -> stellar_k8s::backup::BackupVerificationConfig {
-    stellar_k8s::backup::BackupVerificationConfig {
+pub fn backup_verification_quick() -> abi_rust::backup::BackupVerificationConfig {
+    abi_rust::backup::BackupVerificationConfig {
         enabled: true,
         schedule: "*/5 * * * *".to_string(),
         timeout_minutes: 5,
         benchmark_enabled: false,
-        strategy: stellar_k8s::backup::VerificationStrategy::Quick,
+        strategy: abi_rust::backup::VerificationStrategy::Quick,
         ..Default::default()
     }
 }
 
 /// A `BackupSource::S3` pointing at a test bucket.
-pub fn s3_backup_source() -> stellar_k8s::backup::BackupSource {
-    stellar_k8s::backup::BackupSource::S3 {
+pub fn s3_backup_source() -> abi_rust::backup::BackupSource {
+    abi_rust::backup::BackupSource::S3 {
         bucket: "stellar-it-test-bucket".to_string(),
         region: "us-east-1".to_string(),
         prefix: "integration-tests/".to_string(),
@@ -115,16 +115,16 @@ pub fn s3_backup_source() -> stellar_k8s::backup::BackupSource {
 }
 
 /// A `BackupSource::VolumeSnapshot` referencing a test snapshot.
-pub fn volume_snapshot_backup_source() -> stellar_k8s::backup::BackupSource {
-    stellar_k8s::backup::BackupSource::VolumeSnapshot {
+pub fn volume_snapshot_backup_source() -> abi_rust::backup::BackupSource {
+    abi_rust::backup::BackupSource::VolumeSnapshot {
         snapshot_name: "stellar-it-snapshot".to_string(),
         storage_class: "standard".to_string(),
     }
 }
 
 /// Returns a `SecretRotationConfig` with all fields at documented defaults.
-pub fn secret_rotation_defaults() -> stellar_k8s::backup::SecretRotationConfig {
-    stellar_k8s::backup::SecretRotationConfig {
+pub fn secret_rotation_defaults() -> abi_rust::backup::SecretRotationConfig {
+    abi_rust::backup::SecretRotationConfig {
         enabled: false,
         schedule: "0 0 1 * *".to_string(),
         password_length: 32,
@@ -138,8 +138,8 @@ pub fn secret_rotation_defaults() -> stellar_k8s::backup::SecretRotationConfig {
 
 /// Returns a `SecretRotationConfig` with all features enabled, suitable for
 /// testing the serialisation round-trip.
-pub fn secret_rotation_full() -> stellar_k8s::backup::SecretRotationConfig {
-    stellar_k8s::backup::SecretRotationConfig {
+pub fn secret_rotation_full() -> abi_rust::backup::SecretRotationConfig {
+    abi_rust::backup::SecretRotationConfig {
         enabled: true,
         schedule: "0 0 1 * *".to_string(),
         password_length: 40,

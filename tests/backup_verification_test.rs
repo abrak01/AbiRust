@@ -21,7 +21,7 @@ use common::fixtures::{
     backup_verification_defaults, backup_verification_quick, s3_backup_source,
     volume_snapshot_backup_source,
 };
-use stellar_k8s::backup::{
+use abi_rust::backup::{
     BackupSource, BackupVerificationConfig, VerificationResources, VerificationStrategy,
 };
 

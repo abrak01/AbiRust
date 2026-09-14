@@ -41,7 +41,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::hint::black_box;
 
-use stellar_k8s::crd::{
+use abi_rust::crd::{
     AutoscalingConfig, HistoryMode, HorizonConfig, NodeType, ResourceRequirements,
     StellarNetwork, StellarNodeSpec, StorageConfig, ValidatorConfig,
 };
@@ -122,11 +122,11 @@ fn full_config_validator_spec() -> StellarNodeSpec {
         service_labels: Some(labels),
         service_annotations: Some(annotations),
         resources: ResourceRequirements {
-            requests: stellar_k8s::crd::ResourceSpec {
+            requests: abi_rust::crd::ResourceSpec {
                 cpu: "500m".to_string(),
                 memory: "512Mi".to_string(),
             },
-            limits: stellar_k8s::crd::ResourceSpec {
+            limits: abi_rust::crd::ResourceSpec {
                 cpu: "2".to_string(),
                 memory: "4Gi".to_string(),
             },

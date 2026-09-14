@@ -23,7 +23,7 @@
 
 #[cfg(test)]
 mod tests {
-    use stellar_k8s::crd::{
+    use abi_rust::crd::{
         CircuitBreakerConfig, IstioMeshConfig, MtlsMode, NodeType, RetryConfig, ServiceMeshConfig,
         StellarNetwork, StellarNode, StellarNodeSpec, ValidatorConfig,
     };
@@ -77,7 +77,7 @@ mod tests {
         node.spec.service_mesh = Some(ServiceMeshConfig {
             sidecar_injection: true,
             istio: None,
-            linkerd: Some(stellar_k8s::crd::LinkerdMeshConfig {
+            linkerd: Some(abi_rust::crd::LinkerdMeshConfig {
                 auto_mtls: true,
                 policy_mode: "deny".to_string(),
             }),
@@ -111,7 +111,7 @@ mod tests {
                 retries: None,
                 timeout_secs: 30,
             }),
-            linkerd: Some(stellar_k8s::crd::LinkerdMeshConfig {
+            linkerd: Some(abi_rust::crd::LinkerdMeshConfig {
                 auto_mtls: true,
                 policy_mode: "allow".to_string(),
             }),

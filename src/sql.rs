@@ -18,8 +18,8 @@ use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
 use std::time::Duration;
 
-use stellar_k8s::crd::StellarNode;
-use stellar_k8s::error::{Error, Result};
+use abi_rust::crd::StellarNode;
+use abi_rust::error::{Error, Result};
 
 pub enum OutputFormat {
     Table,

@@ -6,9 +6,9 @@ name: Quickstart Golden Path Validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch: {}
 
 permissions:

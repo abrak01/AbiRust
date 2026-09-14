@@ -62,8 +62,8 @@
 
 use std::collections::BTreeMap;
 
-use stellar_k8s::webhook::types::{Operation, UserInfo, ValidationInput};
-use stellar_k8s::webhook::{WasmRuntime, WebhookServer};
+use abi_rust::webhook::types::{Operation, UserInfo, ValidationInput};
+use abi_rust::webhook::{WasmRuntime, WebhookServer};
 
 // ---------------------------------------------------------------------------
 // Helper utilities

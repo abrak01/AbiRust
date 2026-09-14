@@ -19,7 +19,7 @@
 //! # Usage
 //!
 //! ```rust
-//! use stellar_k8s::controller::event_taxonomy::{EventAction, EventReason, EventCategory};
+//! use abi_rust::controller::event_taxonomy::{EventAction, EventReason, EventCategory};
 //!
 //! let reason = EventReason::ReconcileSucceeded;
 //! let action = EventAction::Reconcile;

@@ -1,7 +1,7 @@
 //! Example sidecar injector operator using the Stellar-K8s SDK.
 
 use async_trait::async_trait;
-use stellar_k8s::plugin_sdk::{InjectedSidecar, ReconcileContext, SidecarInjector};
+use abi_rust::plugin_sdk::{InjectedSidecar, ReconcileContext, SidecarInjector};
 
 pub struct LogShipperInjector;
 

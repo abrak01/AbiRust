@@ -32,9 +32,9 @@
 
 use anyhow::Result;
 use clap::Parser;
-use stellar_k8s::byzantine::types::WatcherConfig;
-use stellar_k8s::byzantine::watcher::run_watcher;
-use stellar_k8s::logging::{init_binary_subscriber, LogOutputFormat};
+use abi_rust::byzantine::types::WatcherConfig;
+use abi_rust::byzantine::watcher::run_watcher;
+use abi_rust::logging::{init_binary_subscriber, LogOutputFormat};
 use tracing::info;
 use tracing::Level;
 

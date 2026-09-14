@@ -27,7 +27,7 @@
 use axum::body::{to_bytes, Body};
 use axum::http::{Request, StatusCode};
 use serde_json::json;
-use stellar_k8s::webhook::{WasmRuntime, WebhookServer};
+use abi_rust::webhook::{WasmRuntime, WebhookServer};
 use tower::ServiceExt;
 
 fn new_app() -> axum::Router {

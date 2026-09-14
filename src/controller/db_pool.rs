@@ -21,7 +21,7 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use stellar_k8s::controller::db_pool::{DbPoolConfig, create_pool};
+//! use abi_rust::controller::db_pool::{DbPoolConfig, create_pool};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = DbPoolConfig {

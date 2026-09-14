@@ -1,9 +1,9 @@
 [package]
-name = "stellar-k8s"
+name = "abi-rust"
 version = "0.1.0"
 edition = "2021"
-authors = ["Stellar K8s Contributors"]
-description = "Cloud-Native Kubernetes Operator for Stellar Infrastructure"
+authors = ["AbiRust Contributors"]
+description = "AbiRust: Cloud-Native Kubernetes Operator for Stellar Infrastructure"
 license = "Apache-2.0"
 repository = "https://github.com/OtowoOrg/Stellar-K8s"
 autobenches = false

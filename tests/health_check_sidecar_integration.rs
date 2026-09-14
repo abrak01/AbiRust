@@ -12,7 +12,7 @@
 // limitations under the License.
 use axum::http::StatusCode;
 use std::sync::Arc;
-use stellar_k8s::controller::health_check_sidecar::{create_router, HealthCheckState, SyncStatus};
+use abi_rust::controller::health_check_sidecar::{create_router, HealthCheckState, SyncStatus};
 use tokio::sync::RwLock;
 use tower::ServiceExt;
 

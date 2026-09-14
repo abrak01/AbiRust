@@ -121,7 +121,7 @@ struct GhLabel {
 ///
 /// # Example
 /// ```no_run
-/// use stellar_k8s::preflight::run_local_preflight;
+/// use abi_rust::preflight::run_local_preflight;
 /// run_local_preflight().expect("all required tools must be installed");
 /// ```
 pub fn run_local_preflight() -> Result<()> {

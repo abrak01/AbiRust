@@ -14,9 +14,9 @@ name: Conventional Commits & Changelog
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
   push:
-    branches: [main]
+    branches: [main, master]
     tags:
       - "v*.*.*"
 

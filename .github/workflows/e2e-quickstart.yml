@@ -13,7 +13,7 @@ name: E2E Quickstart Verification
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "src/**"
       - "charts/**"
@@ -26,7 +26,7 @@ on:
       - "README.md"
       - "scripts/quickstart-verify.sh"
   pull_request:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "src/**"
       - "charts/**"

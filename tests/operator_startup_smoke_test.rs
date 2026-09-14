@@ -223,7 +223,7 @@ fn binary_unknown_subcommand_exits_nonzero() {
 // Library unit tests — no binary spawn, no Kubernetes
 // ---------------------------------------------------------------------------
 
-use stellar_k8s::controller::OperatorConfig;
+use abi_rust::controller::OperatorConfig;
 
 /// `OperatorConfig::load_from_file` falls back to defaults when the path does
 /// not exist, without panicking.

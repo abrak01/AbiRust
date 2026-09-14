@@ -19,7 +19,7 @@
 mod common;
 
 use common::fixtures::{secret_rotation_defaults, secret_rotation_full};
-use stellar_k8s::backup::{SecretRotationConfig, SecretRotationScheduler};
+use abi_rust::backup::{SecretRotationConfig, SecretRotationScheduler};
 
 // ── Default value contract ────────────────────────────────────────────────────
 

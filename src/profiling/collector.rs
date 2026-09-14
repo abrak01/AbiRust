@@ -120,8 +120,8 @@ impl ProfileCollector {
         // Populate synthetic call-site counters from Tokio metrics.
         // In a real deployment these would come from pprof-rs or perf_event_open.
         stack_counts.insert("tokio::runtime::park".to_string(), active_tasks as u64 * 10);
-        stack_counts.insert("stellar_k8s::controller::reconciler".to_string(), 42);
-        stack_counts.insert("stellar_k8s::rest_api::handlers".to_string(), 18);
+        stack_counts.insert("abi_rust::controller::reconciler".to_string(), 42);
+        stack_counts.insert("abi_rust::rest_api::handlers".to_string(), 18);
 
         let sample = CpuSample {
             captured_at,
@@ -153,11 +153,11 @@ impl ProfileCollector {
         // the `dhat` crate.
         let mut allocation_sites = HashMap::new();
         allocation_sites.insert(
-            "stellar_k8s::crd::types (Vec<StellarNode>)".to_string(),
+            "abi_rust::crd::types (Vec<StellarNode>)".to_string(),
             rss_bytes / 4,
         );
         allocation_sites.insert(
-            "stellar_k8s::controller::metrics (Histogram)".to_string(),
+            "abi_rust::controller::metrics (Histogram)".to_string(),
             rss_bytes / 8,
         );
 

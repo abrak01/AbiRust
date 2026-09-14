@@ -264,7 +264,7 @@ impl<'writer> FormatFields<'writer> for RedactingFields {
 /// # Example
 ///
 /// ```rust,no_run
-/// use stellar_k8s::log_scrub::ScrubLayer;
+/// use abi_rust::log_scrub::ScrubLayer;
 /// use tracing_subscriber::prelude::*;
 ///
 /// tracing_subscriber::registry()

@@ -19,7 +19,7 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use stellar_k8s::rest_api::schema_validation::SchemaValidationLayer;
+//! use abi_rust::rest_api::schema_validation::SchemaValidationLayer;
 //!
 //! // Add to your Axum router:
 //! // let app = Router::new()

@@ -18,16 +18,16 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::EnvFilter;
 
-use stellar_k8s::controller::{
+use abi_rust::controller::{
     horizon_scaler::{HorizonRateLimitScaler, ScalingSignal},
     ControllerState,
 };
 
-use stellar_k8s::rest_api::custom_metrics::{
+use abi_rust::rest_api::custom_metrics::{
     get_horizon_metric, get_metrics_discovery, get_pod_metric, get_stellar_node_metric,
     ApiResourceList, MetricValueList,
 };
-use stellar_k8s::rest_api::metrics_store::{StellarMetricsSnapshot, StellarMetricsStore};
+use abi_rust::rest_api::metrics_store::{StellarMetricsSnapshot, StellarMetricsStore};
 
 // --- Test Setup Helper ---
 
@@ -63,20 +63,20 @@ async fn mock_controller_state() -> Option<Arc<ControllerState>> {
         log_reload_handle,
         log_level_expires_at: Arc::new(Mutex::new(None)),
         last_event_received: Arc::new(AtomicU64::new(0)),
-        job_registry: Arc::new(stellar_k8s::controller::background_jobs::JobRegistry::new()),
-        audit_log: Arc::new(stellar_k8s::controller::audit_log::AuditLog::new()),
+        job_registry: Arc::new(abi_rust::controller::background_jobs::JobRegistry::new()),
+        audit_log: Arc::new(abi_rust::controller::audit_log::AuditLog::new()),
         oidc_config: None,
         metrics_store,
-        audit_recorder: Arc::new(stellar_k8s::controller::AuditRecorder::new(
-            Arc::new(stellar_k8s::controller::audit_log::AuditLog::new()),
+        audit_recorder: Arc::new(abi_rust::controller::AuditRecorder::new(
+            Arc::new(abi_rust::controller::audit_log::AuditLog::new()),
             vec![],
             None,
         )),
-        anomaly_detector: Arc::new(stellar_k8s::controller::AnomalyDetector::new(
+        anomaly_detector: Arc::new(abi_rust::controller::AnomalyDetector::new(
             Default::default(),
         )),
-        plugin_registry: Arc::new(stellar_k8s::plugin_sdk::PluginRegistry::new()),
-        analytics_engine: Arc::new(stellar_k8s::logging::analytics::AnalyticsEngine::new(
+        plugin_registry: Arc::new(abi_rust::plugin_sdk::PluginRegistry::new()),
+        analytics_engine: Arc::new(abi_rust::logging::analytics::AnalyticsEngine::new(
             std::time::Duration::from_secs(3600),
         )),
     }))

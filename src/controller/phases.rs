@@ -45,7 +45,7 @@
 //! # Example
 //!
 //! ```
-//! use stellar_k8s::controller::phases::{PhaseMachine, ReconcilePhase};
+//! use abi_rust::controller::phases::{PhaseMachine, ReconcilePhase};
 //!
 //! let mut machine = PhaseMachine::new();
 //! assert_eq!(machine.current(), ReconcilePhase::Initializing);
@@ -365,8 +365,8 @@ impl PhaseMachine {
     /// bookkeeping (enter, time, fail, record) happens in exactly one place.
     ///
     /// ```
-    /// # use stellar_k8s::controller::phases::{PhaseMachine, ReconcilePhase};
-    /// # use stellar_k8s::error::Result;
+    /// # use abi_rust::controller::phases::{PhaseMachine, ReconcilePhase};
+    /// # use abi_rust::error::Result;
     /// # tokio_test::block_on(async {
     /// let mut machine = PhaseMachine::new();
     /// let value = machine

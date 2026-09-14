@@ -28,7 +28,7 @@
 //!
 //! ```rust
 //! use std::sync::Arc;
-//! use stellar_k8s::rest_api::metrics_store::{StellarMetricsStore, StellarMetricsSnapshot};
+//! use abi_rust::rest_api::metrics_store::{StellarMetricsStore, StellarMetricsSnapshot};
 //!
 //! let store = Arc::new(StellarMetricsStore::new());
 //!

@@ -33,7 +33,7 @@
 //!
 //! ```rust,no_run
 //! use std::sync::Arc;
-//! use stellar_k8s::controller::background_jobs::{JobRegistry, JobKind};
+//! use abi_rust::controller::background_jobs::{JobRegistry, JobKind};
 //!
 //! # async fn example() {
 //! let registry = Arc::new(JobRegistry::new());

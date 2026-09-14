@@ -73,7 +73,7 @@
 //! # Example
 //!
 //! ```
-//! use stellar_k8s::feature_flags::{EvaluationContext, FlagRule, FlagSet};
+//! use abi_rust::feature_flags::{EvaluationContext, FlagRule, FlagSet};
 //!
 //! let mut flags = FlagSet::new();
 //! flags.insert("new_pruner", FlagRule::percentage(25.0));

@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use kube::CustomResourceExt;
-use stellar_k8s::crd::StellarNode;
+use abi_rust::crd::StellarNode;
 
 fn main() {
     print!("{}", serde_yaml::to_string(&StellarNode::crd()).unwrap());

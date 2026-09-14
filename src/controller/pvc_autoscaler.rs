@@ -19,8 +19,8 @@
 //! # Usage
 //!
 //! ```rust,ignore
-//! use stellar_k8s::controller::pvc_autoscaler::run_pvc_autoscaler;
-//! use stellar_k8s::controller::volume_resizer::VolumeResizerConfig;
+//! use abi_rust::controller::pvc_autoscaler::run_pvc_autoscaler;
+//! use abi_rust::controller::volume_resizer::VolumeResizerConfig;
 //!
 //! let config = VolumeResizerConfig::default();
 //! tokio::spawn(run_pvc_autoscaler(client.clone(), config));

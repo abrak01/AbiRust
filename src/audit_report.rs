@@ -14,8 +14,8 @@ use aws_sdk_s3::Client as S3Client;
 use comfy_table::Table;
 use serde::{Deserialize, Serialize};
 
-use stellar_k8s::controller::audit_log::AuditEntry;
-use stellar_k8s::error::{Error, Result};
+use abi_rust::controller::audit_log::AuditEntry;
+use abi_rust::error::{Error, Result};
 
 /// JSON-serializable report wrapping a list of audit entries.
 ///
@@ -259,7 +259,7 @@ impl AuditReporter {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use stellar_k8s::controller::audit_log::{AdminAction, AuditEntry};
+    use abi_rust::controller::audit_log::{AdminAction, AuditEntry};
 
     fn make_entry(success: bool) -> AuditEntry {
         let mut e = AuditEntry::new(

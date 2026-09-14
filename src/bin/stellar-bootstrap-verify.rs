@@ -36,8 +36,8 @@
 use std::process::ExitCode;
 
 use clap::Parser;
-use stellar_k8s::bootstrap_verify::run_bootstrap_verification;
-use stellar_k8s::preflight::CheckSeverity;
+use abi_rust::bootstrap_verify::run_bootstrap_verification;
+use abi_rust::preflight::CheckSeverity;
 
 #[derive(Parser, Debug)]
 #[command(

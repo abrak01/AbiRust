@@ -20,7 +20,7 @@
 //! # Usage
 //!
 //! ```rust
-//! use stellar_k8s::logging::fields as F;
+//! use abi_rust::logging::fields as F;
 //!
 //! # let node_name = "node-1".to_string();
 //! # let namespace = "default".to_string();

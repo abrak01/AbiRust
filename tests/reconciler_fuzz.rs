@@ -27,8 +27,8 @@ use proptest::prelude::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use stellar_k8s::controller::{reconcile_for_fuzz, ControllerState};
-use stellar_k8s::crd::{
+use abi_rust::controller::{reconcile_for_fuzz, ControllerState};
+use abi_rust::crd::{
     HistoryMode, HorizonConfig, NodeType, ResourceRequirements, ResourceSpec, RolloutStrategy,
     SorobanConfig, StellarNetwork, StellarNode, StellarNodeSpec, StellarNodeStatus, StorageConfig,
     ValidatorConfig,
@@ -371,18 +371,18 @@ async fn reconcile_with_failing_client_never_panics_and_converges() {
         job_registry: std::sync::Arc::new(Default::default()),
         audit_log: std::sync::Arc::new(Default::default()),
         oidc_config: None,
-        audit_recorder: std::sync::Arc::new(stellar_k8s::controller::AuditRecorder::new(
+        audit_recorder: std::sync::Arc::new(abi_rust::controller::AuditRecorder::new(
             std::sync::Arc::new(Default::default()),
             vec![],
             None,
         )),
         anomaly_detector: std::sync::Arc::new(
-            stellar_k8s::controller::anomaly_detection::AnomalyDetector::new(Default::default()),
+            abi_rust::controller::anomaly_detection::AnomalyDetector::new(Default::default()),
         ),
-        plugin_registry: std::sync::Arc::new(stellar_k8s::plugin_sdk::PluginRegistry::new()),
+        plugin_registry: std::sync::Arc::new(abi_rust::plugin_sdk::PluginRegistry::new()),
         metrics_store: std::sync::Arc::new(Default::default()),
         analytics_engine: std::sync::Arc::new(
-            stellar_k8s::logging::analytics::AnalyticsEngine::new(std::time::Duration::from_secs(
+            abi_rust::logging::analytics::AnalyticsEngine::new(std::time::Duration::from_secs(
                 3600,
             )),
         ),

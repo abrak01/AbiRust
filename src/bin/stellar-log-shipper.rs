@@ -254,7 +254,7 @@ impl Batch {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Same OTel wiring `stellar_k8s::logging::init_binary_subscriber` gives
+    // Same OTel wiring `abi_rust::logging::init_binary_subscriber` gives
     // every other sidecar (issue #1369) — kept inline here to preserve the
     // existing `EnvFilter::from_default_env()` behavior exactly.
     let use_otel = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").is_ok();
@@ -262,8 +262,8 @@ async fn main() -> Result<()> {
         .with(fmt::layer().json())
         .with(EnvFilter::from_default_env());
     if use_otel {
-        let otel_layer = stellar_k8s::telemetry::init_telemetry(&registry);
-        let trace_id_layer = stellar_k8s::telemetry::trace_id_layer();
+        let otel_layer = abi_rust::telemetry::init_telemetry(&registry);
+        let trace_id_layer = abi_rust::telemetry::trace_id_layer();
         registry.with(otel_layer).with(trace_id_layer).init();
     } else {
         registry.init();

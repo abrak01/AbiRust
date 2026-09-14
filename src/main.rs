@@ -12,23 +12,23 @@
 // limitations under the License.
 use clap::Parser;
 use std::process;
-use stellar_k8s::cli::{Args, BackupCommands, Commands};
-use stellar_k8s::commands::backup::{run_backup, run_cleanup, run_list, run_restore};
-use stellar_k8s::commands::benchmark::run_benchmark_controller_cmd;
-use stellar_k8s::commands::check_crd::run_check_crd;
-use stellar_k8s::commands::doctor::run_doctor;
-use stellar_k8s::commands::export_compliance::run_export_compliance;
-use stellar_k8s::commands::health_check::run_health_check;
-use stellar_k8s::commands::info::run_info;
-use stellar_k8s::commands::operator::run_operator;
-use stellar_k8s::commands::runbook::run_generate_runbook;
-use stellar_k8s::commands::simulator::run_simulator;
-use stellar_k8s::commands::webhook::run_webhook;
+use abi_rust::cli::{Args, BackupCommands, Commands};
+use abi_rust::commands::backup::{run_backup, run_cleanup, run_list, run_restore};
+use abi_rust::commands::benchmark::run_benchmark_controller_cmd;
+use abi_rust::commands::check_crd::run_check_crd;
+use abi_rust::commands::doctor::run_doctor;
+use abi_rust::commands::export_compliance::run_export_compliance;
+use abi_rust::commands::health_check::run_health_check;
+use abi_rust::commands::info::run_info;
+use abi_rust::commands::operator::run_operator;
+use abi_rust::commands::runbook::run_generate_runbook;
+use abi_rust::commands::simulator::run_simulator;
+use abi_rust::commands::webhook::run_webhook;
 
-use stellar_k8s::controller::archive_prune::prune_archive;
-use stellar_k8s::controller::diff::diff;
-use stellar_k8s::version_check;
-use stellar_k8s::{incident, Error};
+use abi_rust::controller::archive_prune::prune_archive;
+use abi_rust::controller::diff::diff;
+use abi_rust::version_check;
+use abi_rust::{incident, Error};
 
 #[tokio::main]
 async fn main() {
@@ -139,7 +139,7 @@ async fn run() -> Result<(), Error> {
         }
         Commands::Simulator(cli) => return run_simulator(cli).await,
         Commands::BenchmarkCompare(compare_args) => {
-            return stellar_k8s::benchmark_compare::run_benchmark_compare(compare_args)
+            return abi_rust::benchmark_compare::run_benchmark_compare(compare_args)
                 .await
                 .map_err(|e| Error::config_step("benchmark compare", e));
         }

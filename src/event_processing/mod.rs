@@ -33,7 +33,7 @@
 //! # Quick start
 //!
 //! ```rust,no_run
-//! use stellar_k8s::event_processing::{EventProcessingSystem, EventProcessingConfig};
+//! use abi_rust::event_processing::{EventProcessingSystem, EventProcessingConfig};
 //!
 //! #[tokio::main]
 //! async fn main() {

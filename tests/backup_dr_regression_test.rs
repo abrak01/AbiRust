@@ -17,13 +17,13 @@
 use std::fs;
 use tempfile::TempDir;
 
-use stellar_k8s::backup::{
+use abi_rust::backup::{
     BackupSource, BackupVerificationConfig, VerificationResources, VerificationStrategy,
 };
-use stellar_k8s::commands::backup::{
+use abi_rust::commands::backup::{
     run_backup, run_cleanup, run_list, run_restore, BackupArgs, CleanupArgs, ListArgs, RestoreArgs,
 };
-use stellar_k8s::crd::{
+use abi_rust::crd::{
     DRPeerHealth, DRRole, DRSyncStrategy, DisasterRecoveryConfig, DisasterRecoveryStatus,
 };
 

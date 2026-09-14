@@ -14,7 +14,7 @@
 //!
 //! Verifies that sensitive patterns which may appear in stdout/stderr from
 //! pipeline commands (make targets, cargo test, kubectl dumps, CI scripts) are
-//! scrubbed by [`stellar_k8s::log_scrub::redact`] before they can leak into CI
+//! scrubbed by [`abi_rust::log_scrub::redact`] before they can leak into CI
 //! artifacts or aggregated logs.
 //!
 //! # Modes
@@ -34,7 +34,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Parser;
-use stellar_k8s::log_scrub::redact;
+use abi_rust::log_scrub::redact;
 
 /// Built-in dirty pipeline log snippets that MUST redact completely.
 const DIRTY_FIXTURES: &[(&str, &str)] = &[

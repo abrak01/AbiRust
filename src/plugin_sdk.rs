@@ -20,7 +20,7 @@
 //! Implement [`ReconcileHook`] to run logic before/after every reconcile cycle:
 //!
 //! ```rust,no_run
-//! use stellar_k8s::plugin_sdk::{ReconcileHook, ReconcileContext, HookResult};
+//! use abi_rust::plugin_sdk::{ReconcileHook, ReconcileContext, HookResult};
 //!
 //! pub struct MyHook;
 //!
@@ -38,7 +38,7 @@
 //! Implement [`SidecarInjector`] to inject containers into managed pods:
 //!
 //! ```rust,no_run
-//! use stellar_k8s::plugin_sdk::{SidecarInjector, ReconcileContext, InjectedSidecar};
+//! use abi_rust::plugin_sdk::{SidecarInjector, ReconcileContext, InjectedSidecar};
 //!
 //! pub struct MySidecar;
 //!
@@ -171,8 +171,8 @@ pub trait SidecarInjector: Send + Sync + 'static {
 ///
 /// ```rust,no_run
 /// use std::sync::Arc;
-/// use stellar_k8s::plugin_sdk::PluginRegistry;
-/// use stellar_k8s::plugin_sdk::examples::{CustomLoggerHook, MetricsMonitorHook};
+/// use abi_rust::plugin_sdk::PluginRegistry;
+/// use abi_rust::plugin_sdk::examples::{CustomLoggerHook, MetricsMonitorHook};
 ///
 /// let registry = Arc::new(
 ///     PluginRegistry::new()

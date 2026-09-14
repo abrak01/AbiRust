@@ -27,10 +27,10 @@ use kube::{
     Client, ResourceExt,
 };
 
-use stellar_k8s::controller::check_node_health;
-use stellar_k8s::crd::types::ReplicationRole;
-use stellar_k8s::crd::StellarNode;
-use stellar_k8s::error::{Error, Result};
+use abi_rust::controller::check_node_health;
+use abi_rust::crd::types::ReplicationRole;
+use abi_rust::crd::StellarNode;
+use abi_rust::error::{Error, Result};
 
 mod explain;
 
@@ -223,7 +223,7 @@ enum Commands {
     /// Incident Response Toolkit
     Incident {
         #[command(subcommand)]
-        command: stellar_k8s::incident::IncidentCommands,
+        command: abi_rust::incident::IncidentCommands,
     },
     /// Trigger a failover to a secondary cluster
     Failover {
@@ -395,10 +395,10 @@ async fn run(cli: Cli) -> Result<()> {
                 }
             }
             Commands::Incident {
-                command: stellar_k8s::incident::IncidentCommands::Collect(_),
+                command: abi_rust::incident::IncidentCommands::Collect(_),
             } => Some("Collect forensic data for incident response (read-only)".to_string()),
             Commands::Incident {
-                command: stellar_k8s::incident::IncidentCommands::Report(_),
+                command: abi_rust::incident::IncidentCommands::Report(_),
             } => Some("Generate incident report (read-only, no cluster mutation)".to_string()),
             Commands::Failover { node_name, .. } => {
                 Some(format!("Trigger failover for StellarNode '{node_name}'"))
@@ -613,11 +613,11 @@ async fn run(cli: Cli) -> Result<()> {
             Ok(())
         }
         Commands::Incident { command } => match command {
-            stellar_k8s::incident::IncidentCommands::Collect(args) => {
-                stellar_k8s::incident::run_incident_collect(args).await
+            abi_rust::incident::IncidentCommands::Collect(args) => {
+                abi_rust::incident::run_incident_collect(args).await
             }
-            stellar_k8s::incident::IncidentCommands::Report(args) => {
-                stellar_k8s::incident::run_incident_report(args).await
+            abi_rust::incident::IncidentCommands::Report(args) => {
+                abi_rust::incident::run_incident_report(args).await
             }
         },
         Commands::Failover { node_name, force } => {
@@ -675,8 +675,8 @@ async fn run(cli: Cli) -> Result<()> {
                     severity,
                     all_namespaces,
                 } => {
-                    use stellar_k8s::controller::cve::VulnerabilitySeverity;
-                    use stellar_k8s::controller::{list_vulnerable_pods, CveScannerConfig};
+                    use abi_rust::controller::cve::VulnerabilitySeverity;
+                    use abi_rust::controller::{list_vulnerable_pods, CveScannerConfig};
 
                     let min_severity = match severity.to_lowercase().as_str() {
                         "critical" => VulnerabilitySeverity::Critical,
@@ -1009,7 +1009,7 @@ async fn snapshot_restore(
 }
 
 fn search_docs(query: &str, full: bool) -> Result<()> {
-    use stellar_k8s::search;
+    use abi_rust::search;
     let results = search::search(query);
 
     if results.is_empty() {
@@ -1493,9 +1493,9 @@ async fn debug(
 
         // Determine the container name based on node type
         let container_name = match node.spec.node_type {
-            stellar_k8s::crd::NodeType::Validator => "stellar-core",
-            stellar_k8s::crd::NodeType::Horizon => "horizon",
-            stellar_k8s::crd::NodeType::SorobanRpc => "soroban-rpc",
+            abi_rust::crd::NodeType::Validator => "stellar-core",
+            abi_rust::crd::NodeType::Horizon => "horizon",
+            abi_rust::crd::NodeType::SorobanRpc => "soroban-rpc",
         };
 
         let mut cmd = std::process::Command::new("kubectl");
@@ -1694,7 +1694,7 @@ async fn summary(
 }
 
 async fn list_federation_clusters(client: &Client) -> Result<()> {
-    let api: Api<stellar_k8s::crd::ClusterRegistry> = Api::all(client.clone());
+    let api: Api<abi_rust::crd::ClusterRegistry> = Api::all(client.clone());
     let registries = match api.list(&Default::default()).await {
         Ok(r) => r,
         Err(_) => {
@@ -1729,7 +1729,7 @@ async fn list_federation_clusters(client: &Client) -> Result<()> {
 }
 
 async fn list_federated_nodes(client: &Client, namespace: Option<&str>) -> Result<()> {
-    let api: Api<stellar_k8s::crd::FederatedStellarNode> = if let Some(ns) = namespace {
+    let api: Api<abi_rust::crd::FederatedStellarNode> = if let Some(ns) = namespace {
         Api::namespaced(client.clone(), ns)
     } else {
         Api::all(client.clone())
@@ -1761,7 +1761,7 @@ async fn list_federated_nodes(client: &Client, namespace: Option<&str>) -> Resul
 }
 
 async fn show_federation_status(client: &Client, namespace: &str, name: &str) -> Result<()> {
-    let api: Api<stellar_k8s::crd::FederatedStellarNode> =
+    let api: Api<abi_rust::crd::FederatedStellarNode> =
         Api::namespaced(client.clone(), namespace);
     let _node = api.get(name).await.map_err(Error::KubeError)?;
 
@@ -1777,13 +1777,13 @@ async fn show_federation_status(client: &Client, namespace: &str, name: &str) ->
 mod tests {
     use super::*;
     use kube::api::ObjectMeta;
-    use stellar_k8s::controller::conditions::{CONDITION_STATUS_TRUE, CONDITION_TYPE_READY};
-    use stellar_k8s::crd::{Condition, NodeType, StellarNodeSpec, StellarNodeStatus};
+    use abi_rust::controller::conditions::{CONDITION_STATUS_TRUE, CONDITION_TYPE_READY};
+    use abi_rust::crd::{Condition, NodeType, StellarNodeSpec, StellarNodeStatus};
 
     #[allow(deprecated)]
     fn create_test_node(name: &str, namespace: &str, node_type: NodeType) -> StellarNode {
         use chrono::Utc;
-        use stellar_k8s::crd::StellarNetwork;
+        use abi_rust::crd::StellarNetwork;
 
         // Create a Ready condition so derive_phase_from_conditions() returns "Ready"
         let ready_condition = Condition {
@@ -2022,7 +2022,7 @@ mod tests {
 
     #[test]
     fn test_summary_stats_by_network() {
-        use stellar_k8s::crd::StellarNetwork;
+        use abi_rust::crd::StellarNetwork;
         let mut node = create_test_node("v1", "default", NodeType::Validator);
         node.spec.network = StellarNetwork::Mainnet;
         let nodes = vec![

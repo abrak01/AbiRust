@@ -20,7 +20,7 @@ use kube::{
 use serde_json::json;
 use std::env;
 use std::time::Duration;
-use stellar_k8s::logging::{init_binary_subscriber, LogOutputFormat};
+use abi_rust::logging::{init_binary_subscriber, LogOutputFormat};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn, Level};
 
@@ -242,7 +242,7 @@ async fn monitor_ebpf_metrics(events: Api<Event>, pod_name: String, namespace: S
     loop {
         if let Ok(resp) = {
             let mut headers = reqwest::header::HeaderMap::new();
-            stellar_k8s::telemetry::inject_trace_headers(&mut headers);
+            abi_rust::telemetry::inject_trace_headers(&mut headers);
             client
                 .get("http://localhost:9435/metrics")
                 .headers(headers)

@@ -41,7 +41,7 @@
 //! # Example: Creating a Plugin
 //!
 //! ```rust,ignore
-//! use stellar_k8s::webhook::{WasmRuntime, WebhookServer, PluginConfig, PluginMetadata};
+//! use abi_rust::webhook::{WasmRuntime, WebhookServer, PluginConfig, PluginMetadata};
 //!
 //! // Create the runtime
 //! let runtime = WasmRuntime::new()?;

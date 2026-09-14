@@ -9,14 +9,14 @@ name: Dependency & License Review
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "Cargo.toml"
       - "Cargo.lock"
       - "deny.toml"
       - ".cargo/audit.toml"
   pull_request:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "Cargo.toml"
       - "Cargo.lock"

@@ -373,7 +373,7 @@ impl ControllerState {
 /// ```rust,no_run
 /// use std::sync::Arc;
 /// use std::sync::atomic::{AtomicBool, AtomicU64};
-/// use stellar_k8s::controller::{ControllerState, run_controller};
+/// use abi_rust::controller::{ControllerState, run_controller};
 /// use kube::Client;
 ///
 /// #[tokio::main]
@@ -402,20 +402,20 @@ impl ControllerState {
 ///         log_reload_handle: reload_handle,
 ///         log_level_expires_at: Arc::new(tokio::sync::Mutex::new(None)),
 ///         last_event_received: Arc::new(AtomicU64::new(0)),
-///         job_registry: Arc::new(stellar_k8s::controller::background_jobs::JobRegistry::new()),
-///         audit_log: Arc::new(stellar_k8s::controller::audit_log::AuditLog::new()),
-///         audit_recorder: Arc::new(stellar_k8s::controller::AuditRecorder::new(
-///             Arc::new(stellar_k8s::controller::audit_log::AuditLog::new()),
+///         job_registry: Arc::new(abi_rust::controller::background_jobs::JobRegistry::new()),
+///         audit_log: Arc::new(abi_rust::controller::audit_log::AuditLog::new()),
+///         audit_recorder: Arc::new(abi_rust::controller::AuditRecorder::new(
+///             Arc::new(abi_rust::controller::audit_log::AuditLog::new()),
 ///             vec![],
 ///             None,
 ///         )),
-///         anomaly_detector: Arc::new(stellar_k8s::controller::AnomalyDetector::new(
+///         anomaly_detector: Arc::new(abi_rust::controller::AnomalyDetector::new(
 ///             Default::default(),
 ///         )),
-///         plugin_registry: Arc::new(stellar_k8s::plugin_sdk::PluginRegistry::new()),
+///         plugin_registry: Arc::new(abi_rust::plugin_sdk::PluginRegistry::new()),
 ///         oidc_config: None,
-///         metrics_store: Arc::new(stellar_k8s::rest_api::metrics_store::StellarMetricsStore::new()),
-///         analytics_engine: Arc::new(stellar_k8s::logging::analytics::AnalyticsEngine::new(
+///         metrics_store: Arc::new(abi_rust::rest_api::metrics_store::StellarMetricsStore::new()),
+///         analytics_engine: Arc::new(abi_rust::logging::analytics::AnalyticsEngine::new(
 ///             std::time::Duration::from_secs(3600),
 ///         )),
 ///     });

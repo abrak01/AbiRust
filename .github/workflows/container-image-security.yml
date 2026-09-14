@@ -30,7 +30,7 @@ name: Container Image Security
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "Dockerfile*"
       - ".dockerignore"
@@ -41,7 +41,7 @@ on:
       - ".github/actions/security-scan/**"
       - ".github/actions/sign-image/**"
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "Dockerfile*"
       - ".dockerignore"

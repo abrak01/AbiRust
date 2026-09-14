@@ -34,7 +34,7 @@ impl Default for SamplingConfig {
         Self {
             info_rate: 0.5,
             debug_rate: 0.1,
-            priority_targets: vec!["stellar_k8s::controller::reconciler".to_string()],
+            priority_targets: vec!["abi_rust::controller::reconciler".to_string()],
         }
     }
 }

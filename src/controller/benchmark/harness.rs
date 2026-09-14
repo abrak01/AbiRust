@@ -21,7 +21,7 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use stellar_k8s::controller::benchmark::harness::{HarnessConfig, ReconcileHarness};
+//! use abi_rust::controller::benchmark::harness::{HarnessConfig, ReconcileHarness};
 //!
 //! # tokio_test::block_on(async {
 //! let harness = ReconcileHarness::new(HarnessConfig {

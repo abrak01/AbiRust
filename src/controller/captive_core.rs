@@ -57,12 +57,12 @@ impl CaptiveCoreConfigBuilder {
     /// # Examples
     ///
     /// ```ignore
-    /// use stellar_k8s::controller::captive_core::CaptiveCoreConfigBuilder;
-    /// use stellar_k8s::crd::StellarNode;
+    /// use abi_rust::controller::captive_core::CaptiveCoreConfigBuilder;
+    /// use abi_rust::crd::StellarNode;
     ///
     /// // Assuming you have a StellarNode resource
     /// let builder = CaptiveCoreConfigBuilder::from_node_config(&node)?;
-    /// # Ok::<(), stellar_k8s::error::Error>(())
+    /// # Ok::<(), abi_rust::error::Error>(())
     /// ```
     pub fn from_node_config(node: &StellarNode) -> Result<Self> {
         let soroban_config = node.spec.soroban_config.as_ref().ok_or_else(|| {
@@ -122,13 +122,13 @@ impl CaptiveCoreConfigBuilder {
     /// # Examples
     ///
     /// ```ignore
-    /// # use stellar_k8s::controller::captive_core::CaptiveCoreConfigBuilder;
-    /// # use stellar_k8s::crd::StellarNode;
+    /// # use abi_rust::controller::captive_core::CaptiveCoreConfigBuilder;
+    /// # use abi_rust::crd::StellarNode;
     /// // Assuming you have a StellarNode resource
     /// let builder = CaptiveCoreConfigBuilder::from_node_config(&node)?;
     /// let toml = builder.build_toml()?;
     /// println!("{}", toml);
-    /// # Ok::<(), stellar_k8s::error::Error>(())
+    /// # Ok::<(), abi_rust::error::Error>(())
     /// ```
     pub fn build_toml(&self) -> Result<String> {
         self.validate()?;

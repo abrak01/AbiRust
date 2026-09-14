@@ -16,7 +16,7 @@
 //! CI provisions `postgres:16` and always sets the URL. Local runs without
 //! Postgres print a skip reason unless `CI=true`, in which case the tests fail.
 
-use stellar_k8s::db_migrations::{
+use abi_rust::db_migrations::{
     default_migrations_dir, load_migrations, run_existing_data_path, run_fresh_path,
     with_temp_schema,
 };

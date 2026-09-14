@@ -28,7 +28,7 @@
 //! # Example
 //!
 //! ```rust
-//! use stellar_k8s::controller::audit_log::{AuditLog, AuditEntry, AdminAction};
+//! use abi_rust::controller::audit_log::{AuditLog, AuditEntry, AdminAction};
 //! use std::sync::Arc;
 //!
 //! let log = Arc::new(AuditLog::new());

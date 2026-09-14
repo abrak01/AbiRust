@@ -5,8 +5,8 @@
 #[cfg(test)]
 mod tests {
     use kube::core::ObjectMeta;
-    use stellar_k8s::controller::check_admission;
-    use stellar_k8s::crd::stellar_registry::{
+    use abi_rust::controller::check_admission;
+    use abi_rust::crd::stellar_registry::{
         AdmissionPolicy, ScanningConfig, SigningConfig, StellarRegistry, StellarRegistrySpec,
         VulnerabilitySummary,
     };

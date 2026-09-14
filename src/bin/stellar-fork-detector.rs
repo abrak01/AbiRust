@@ -29,7 +29,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use stellar_k8s::fork_detector::{run_fork_detector, ForkDetectorConfig};
+use abi_rust::fork_detector::{run_fork_detector, ForkDetectorConfig};
 use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -108,7 +108,7 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Same OTel wiring `stellar_k8s::logging::init_binary_subscriber` gives
+    // Same OTel wiring `abi_rust::logging::init_binary_subscriber` gives
     // every other sidecar (issue #1369) — kept inline here, rather than
     // switching to that helper, so the existing `--log-level` filter string
     // (which may be a full directive like "info,foo=debug", not just a bare
@@ -118,8 +118,8 @@ async fn main() -> Result<()> {
         .with(fmt::layer().json())
         .with(EnvFilter::new(&args.log_level));
     if use_otel {
-        let otel_layer = stellar_k8s::telemetry::init_telemetry(&registry);
-        let trace_id_layer = stellar_k8s::telemetry::trace_id_layer();
+        let otel_layer = abi_rust::telemetry::init_telemetry(&registry);
+        let trace_id_layer = abi_rust::telemetry::trace_id_layer();
         registry.with(otel_layer).with(trace_id_layer).init();
     } else {
         registry.init();

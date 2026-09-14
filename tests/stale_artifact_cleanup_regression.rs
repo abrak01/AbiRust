@@ -13,8 +13,8 @@
 //! Regression tests for stale artifact cleanup logic (Issue #978).
 
 use chrono::Utc;
-use stellar_k8s::controller::pruning_worker::{PruningAnalysis, PruningWorker};
-use stellar_k8s::crd::types::PruningPolicy;
+use abi_rust::controller::pruning_worker::{PruningAnalysis, PruningWorker};
+use abi_rust::crd::types::PruningPolicy;
 
 fn policy(retention_days: u32) -> PruningPolicy {
     PruningPolicy {

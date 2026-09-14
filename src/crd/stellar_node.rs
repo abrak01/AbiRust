@@ -622,7 +622,7 @@ impl StellarNodeSpec {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use stellar_k8s::crd::StellarNodeSpec;
+    /// use abi_rust::crd::StellarNodeSpec;
     ///
     /// let spec = StellarNodeSpec::default();
     /// match spec.validate() {
@@ -1768,7 +1768,7 @@ impl StellarNodeStatus {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use stellar_k8s::crd::StellarNodeStatus;
+    /// use abi_rust::crd::StellarNodeStatus;
     ///
     /// let status = StellarNodeStatus::with_phase("Creating");
     /// assert_eq!(status.phase, "Creating");
@@ -1797,7 +1797,7 @@ impl StellarNodeStatus {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use stellar_k8s::crd::StellarNodeStatus;
+    /// use abi_rust::crd::StellarNodeStatus;
     ///
     /// let mut status = StellarNodeStatus::with_phase("Creating");
     /// status.update("Ready", Some("Node is fully synced"));
@@ -1825,7 +1825,7 @@ impl StellarNodeStatus {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use stellar_k8s::crd::StellarNodeStatus;
+    /// use abi_rust::crd::StellarNodeStatus;
     ///
     /// let mut status = StellarNodeStatus::with_phase("Ready");
     /// status.ready_replicas = 1;

@@ -19,7 +19,7 @@ pub mod alerting;
 pub mod analytics;
 /// Standardised log field name constants (Issue #1115).
 ///
-/// Import as `use stellar_k8s::logging::fields as F;` and reference
+/// Import as `use abi_rust::logging::fields as F;` and reference
 /// `F::NODE`, `F::NAMESPACE`, etc. in every `tracing::*!` call so
 /// field names stay consistent across CI pipelines and runtime diagnostics.
 pub mod fields;
@@ -248,8 +248,8 @@ mod tests {
             timestamp: "2026-07-26T10:00:00Z".to_string(),
             level: "INFO".to_string(),
             message: "Reconciliation successful".to_string(),
-            target: "stellar_k8s::controller".to_string(),
-            module: Some("stellar_k8s::controller".to_string()),
+            target: "abi_rust::controller".to_string(),
+            module: Some("abi_rust::controller".to_string()),
             file: Some("src/controller/mod.rs".to_string()),
             line: Some(100),
             trace_id: Some("4bf92f3577b34da6a3ce929d0e0e4736".to_string()),
@@ -267,7 +267,7 @@ mod tests {
 
         assert_eq!(parsed["level"], "INFO");
         assert_eq!(parsed["message"], "Reconciliation successful");
-        assert_eq!(parsed["target"], "stellar_k8s::controller");
+        assert_eq!(parsed["target"], "abi_rust::controller");
         assert_eq!(parsed["component"], "controller");
         assert_eq!(parsed["duration_ms"], 42);
         assert_eq!(parsed["reconcile_id"], "rec-123");
@@ -282,7 +282,7 @@ mod tests {
             timestamp: Utc::now().to_rfc3339(),
             level: "WARN".to_string(),
             message: "High memory usage detected".to_string(),
-            target: "stellar_k8s::monitoring".to_string(),
+            target: "abi_rust::monitoring".to_string(),
             module: None,
             file: None,
             line: None,
