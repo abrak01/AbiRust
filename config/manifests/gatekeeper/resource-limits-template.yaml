@@ -1,0 +1,68 @@
+# Copyright 2024 Stellar-K8s Contributors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: resourcelimits
+spec:
+  crd:
+    spec:
+      names:
+        kind: ResourceLimits
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            max_cpu:
+              type: string
+              description: "Maximum allowed CPU limit as a Kubernetes quantity (e.g. '4', '4000m')"
+            max_memory:
+              type: string
+              description: "Maximum allowed memory limit as a Kubernetes quantity (e.g. '8Gi', '8192Mi')"
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package resourcelimits
+
+        violation[{"msg": msg}] {
+          obj := input.review.object
+          name := obj.metadata.name
+          not obj.spec.resources
+          msg := sprintf("StellarNode '%s' must specify spec.resources.limits", [name])
+        }
+
+        violation[{"msg": msg}] {
+          obj := input.review.object
+          name := obj.metadata.name
+          obj.spec.resources
+          not obj.spec.resources.limits
+          msg := sprintf("StellarNode '%s' must specify spec.resources.limits", [name])
+        }
+
+        violation[{"msg": msg}] {
+          obj := input.review.object
+          name := obj.metadata.name
+          cpu := obj.spec.resources.limits.cpu
+          max_cpu := input.parameters.max_cpu
+          units.parse(cpu) > units.parse(max_cpu)
+          msg := sprintf("StellarNode '%s' cpu limit '%s' exceeds maximum '%s'", [name, cpu, max_cpu])
+        }
+
+        violation[{"msg": msg}] {
+          obj := input.review.object
+          name := obj.metadata.name
+          memory := obj.spec.resources.limits.memory
+          max_memory := input.parameters.max_memory
+          units.parse_bytes(memory) > units.parse_bytes(max_memory)
+          msg := sprintf("StellarNode '%s' memory limit '%s' exceeds maximum '%s'", [name, memory, max_memory])
+        }

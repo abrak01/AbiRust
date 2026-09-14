@@ -1,0 +1,61 @@
+# Copyright 2024 Stellar-K8s Contributors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: stellar-operator-security-alerts
+  namespace: stellar-system
+spec:
+  groups:
+  - name: security.rules
+    rules:
+    - alert: OperatorHighCPU
+      expr: operator_cpu_usage > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage on operator pod {{ $labels.pod }}"
+        description: "Operator CPU > 80% for 5m - potential DoS or resource exhaustion"
+    
+    - alert: OperatorMemoryLeak
+      expr: operator_memory_usage > 0.9
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High memory on operator {{ $labels.pod }}"
+    
+    - alert: WebhookSlowResponse
+      expr: webhook_request_duration > 1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Webhook slow (p95 >1s)"
+    
+    - alert: CVEHighVulnOpen
+      expr: cve_high_count > 0
+      for: 1h
+      labels:
+        severity: critical
+      annotations:
+        summary: "High severity CVE detected"
+    
+    - alert: FailedReconciliationsHigh
+      expr: reconciliation_failures_rate > 10
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High reconciliation failures - potential security misconfig"

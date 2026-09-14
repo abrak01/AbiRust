@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+docs/
+!docs/api/
+!docs/api/openapi.yaml
+README.md
+LICENSE
+SECURITY.md
+
+# CI/CD artifacts
+.github/
+benchmarks/
+scripts/
+
+# Development files
+config/dev/
+kubeconfig*.yaml
+*.kubeconfig
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/*
+!target/release/
+target/release/*
+!target/release/stellar-operator
+!target/release/kubectl-stellar
+debug/
+release/
+
+# Test files
+tests/
+test-*.yaml
+examples/
+
+# Monitoring
+monitoring/
+
+# Assets
+assets/
+logo.png
+*.png
+*.jpg
+*.svg

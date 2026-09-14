@@ -1,0 +1,95 @@
+suite: crd
+templates:
+  - templates/crd.yaml
+
+tests:
+  - it: renders a CustomResourceDefinition
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: stellarnodes.stellar.org
+
+  - it: CRD group is stellar.org
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.group
+          value: stellar.org
+
+  - it: CRD kind is StellarNode
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.names.kind
+          value: StellarNode
+
+  - it: CRD plural is stellarnodes
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.names.plural
+          value: stellarnodes
+
+  - it: CRD shortName is sn
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.names.shortNames
+          content: sn
+
+  - it: CRD scope is Namespaced
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.scope
+          value: Namespaced
+
+  - it: CRD version v1alpha1 is served and stored
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.versions[0].name
+          value: v1alpha1
+      - equal:
+          path: spec.versions[0].served
+          value: true
+      - equal:
+          path: spec.versions[0].storage
+          value: true
+
+  - it: CRD has status subresource
+    documentIndex: 0
+    asserts:
+      - isNotNull:
+          path: spec.versions[0].subresources.status
+
+  - it: CRD has common labels
+    documentIndex: 0
+    asserts:
+      - isSubset:
+          path: metadata.labels
+          content:
+            app.kubernetes.io/name: stellar-operator
+            app.kubernetes.io/instance: RELEASE-NAME
+
+  - it: CRD schema requires nodeType network and version
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.required
+          content: nodeType
+      - contains:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.required
+          content: network
+      - contains:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.required
+          content: version
+
+  - it: CRD has printer columns
+    documentIndex: 0
+    asserts:
+      - isNotEmpty:
+          path: spec.versions[0].additionalPrinterColumns

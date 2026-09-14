@@ -1,0 +1,118 @@
+# Copyright 2024 Stellar-K8s Contributors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Stellar-K8s Operator Configuration
+# This file is mounted as a ConfigMap at /etc/stellar-operator/config.yaml
+
+# Default resource requirements per node type
+defaultResources:
+  validator:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  horizon:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  sorobanRpc:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+
+# Reconciler configuration
+reconciler:
+  # Base requeue interval for healthy reconciliation loops (seconds)
+  # Default: 60
+  requeueInterval: 60
+
+  # Base backoff duration for error retries (seconds)
+  # Default: 15
+  errorBackoffBase: 15
+
+  # Maximum backoff duration (seconds)
+  # Default: 300 (5 minutes)
+  maxBackoff: 300
+
+  # Enable jitter for backoff calculations
+  # Adds randomness (0.5x to 1.5x) to prevent thundering herd
+  # Default: true
+  enableJitter: true
+
+# OIDC authentication for the operator REST API (optional)
+# When configured, the operator validates JWT bearer tokens against the
+# specified OIDC provider and enforces role-based access control.
+# Supported providers: GitHub, Google, Okta, or any standard OIDC issuer.
+#
+# Roles embedded in the JWT (via the `rolesClaim` field):
+#   - "Reader" – read-only access to all GET endpoints
+#   - "Admin"  – full access including mutating endpoints
+#
+# oidc:
+#   issuer: "https://accounts.google.com"
+#   audience: "stellar-operator"
+#   jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
+#   rolesClaim: "roles"
+
+# Proactive disk scaling configuration
+# Automatically expands PVCs when disk usage exceeds threshold
+diskScaling:
+  # Enable automatic disk scaling
+  # Default: true
+  enabled: true
+
+  # Disk usage percentage that triggers expansion (0-100)
+  # When usage exceeds this threshold, the PVC will be expanded
+  # Default: 80
+  expansionThreshold: 80
+
+  # Percentage to increase disk size by (e.g., 50 = increase by 50%)
+  # Default: 50
+  expansionIncrement: 50
+
+  # Minimum time between expansions (seconds)
+  # Prevents rapid successive expansions
+  # Default: 3600 (1 hour)
+  minExpansionIntervalSecs: 3600
+
+  # Maximum number of expansions allowed per PVC
+  # Safety limit to prevent runaway costs
+  # Default: 10
+  maxExpansions: 10
+
+# ML-based anomaly detection for operator behavioral patterns
+anomalyDetection:
+  # Enable anomaly detection
+  enabled: true
+
+  # Interval between detection runs (seconds)
+  intervalSeconds: 30
+
+  # Rolling window size for action counts (seconds)
+  windowSeconds: 300
+
+  # Z-score threshold to flag anomalies
+  zscoreThreshold: 3.0
+
+  # EWMA smoothing factor (0-1)
+  ewmaAlpha: 0.25
+
+  # Max anomalies retained in memory
+  maxAnomalies: 500

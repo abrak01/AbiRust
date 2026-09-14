@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stellar-operator-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stellar-operator.labels" . | nindent 4 }}
+data:
+  # Feature flags — set to "true" or "false" to toggle at runtime without restart.
+  # See README.md and src/controller/feature_flags.rs for documentation.
+  enable_dr: {{ .Values.featureFlags.enableDr | quote }}
+  enable_cost_optimization: {{ .Values.costOptimization.resourceTracking.enabled | quote }}
+  enable_rate_limiting: {{ .Values.rateLimiting.enabled | quote }}
+  {{- /*
+    Gradual-rollout flags (issue #1337). Each entry becomes a `flag.<name>`
+    key holding the JSON rule that src/feature_flags.rs evaluates. Editing
+    this ConfigMap in a live cluster retargets a rollout without a redeploy.
+  */}}
+  {{- range $name, $rule := (.Values.featureFlags.rollouts | default dict) }}
+  flag.{{ $name }}: |
+{{ toPrettyJson $rule | indent 4 }}
+  {{- end }}
