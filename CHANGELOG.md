@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+## Chart v1.4.0 (2026-09-14) [minor]
+
+🐛 fix: add master branch to workflow triggers so CI runs on default branch
+✨ feat: merge Rust operator into AbiRust monorepo
+📝 chore: initial split — K8s/DevOps platform files from Stellar-K8s
+
+
 ## Chart v1.3.7 (2026-09-03) [patch]
 
 🐛 fix(ci): fix failing badge workflows
